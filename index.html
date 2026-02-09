@@ -24,18 +24,16 @@
     <!-- App Bar -->
     <header class="app-bar">
         <div class="app-bar-container">
-            <!-- Logo (Left) -->
+            <!-- Logo Section (Left - Stacked) -->
             <div class="logo-section">
                 <a href="https://codeforgeek.com/" class="site-logo" rel="home">
                     <img src="https://codeforgeek.com/wp-content/uploads/2023/03/codeforgeek.png" alt="Codeforgeek"
                         class="logo-img">
                 </a>
-            </div>
-
-            <!-- Studio Branding (Center) -->
-            <div class="studio-title">
-                <span class="material-symbols-outlined studio-icon">local_florist</span>
-                <span class="studio-name">Tattoo Studio</span>
+                <div class="studio-title">
+                    <span class="material-symbols-outlined studio-icon">local_florist</span>
+                    <span class="studio-name">Tattoo Studio</span>
+                </div>
             </div>
 
             <!-- Navigation (Right) -->
@@ -134,6 +132,11 @@
             </div>
 
             <div class="sidebar-footer">
+                <!-- Ad Zone: Above Download -->
+                <div class="ad-zone ad-sidebar" id="adSidebar">
+                    <span class="ad-label">Advertisement</span>
+                </div>
+
                 <button class="btn btn-filled full-width" id="downloadButton" disabled>
                     <span class="material-symbols-outlined">download</span>
                     Download Result
@@ -176,9 +179,19 @@
                     <p id="loadingText">Processing...</p>
                 </div>
             </div>
+
+            <!-- Ad Zone: Right of Canvas -->
+            <div class="ad-zone ad-canvas-right" id="adCanvasRight">
+                <span class="ad-label">Advertisement</span>
+            </div>
         </section>
 
     </main>
+
+    <!-- Ad Zone: Sticky Bottom -->
+    <div class="ad-zone ad-sticky-bottom" id="adStickyBottom">
+        <span class="ad-label">Advertisement</span>
+    </div>
 
     <script type="module" src="js/app.js"></script>
 </body>

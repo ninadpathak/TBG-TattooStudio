@@ -97,10 +97,12 @@ button {
     gap: 1rem;
 }
 
-/* Logo (Left) */
+/* Logo Section (Left - Stacked) */
 .logo-section {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
     flex-shrink: 0;
 }
 
@@ -110,40 +112,41 @@ button {
 }
 
 .logo-img {
-    height: 2rem;
+    height: 2.25rem;
     width: auto;
     object-fit: contain;
 }
 
-/* Studio Title (Center - flex based) */
+/* Studio Title (Under logo) */
 .studio-title {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    flex: 1;
-    justify-content: center;
+    gap: 0.35rem;
+    padding-left: 0.1rem;
 }
 
 .studio-icon {
-    font-size: 1.5rem;
+    font-size: 1rem;
     color: var(--primary);
 }
 
 .studio-name {
-    font-weight: 700;
-    font-size: 1.1rem;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--secondary);
     letter-spacing: 0.02em;
 }
 
 /* Navigation (Right) */
 .nav-links {
     display: flex;
-    gap: 1.25rem;
+    gap: 1.5rem;
+    margin-left: auto;
 }
 
 .nav-link {
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     color: var(--on-surface);
     white-space: nowrap;
     transition: color var(--transition);
@@ -717,6 +720,64 @@ button {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+/* ==========================================================================
+   Ad Zones
+   ========================================================================== */
+
+.ad-zone {
+    background: linear-gradient(135deg, var(--surface-variant) 0%, var(--secondary-container) 100%);
+    border: 2px dashed var(--outline-variant);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.ad-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--on-surface-variant);
+    opacity: 0.6;
+}
+
+/* Sidebar Ad (above download) */
+.ad-sidebar {
+    width: 100%;
+    min-height: 100px;
+    margin-bottom: 1rem;
+}
+
+/* Right of Canvas Ad */
+.ad-canvas-right {
+    width: 160px;
+    min-height: 600px;
+    flex-shrink: 0;
+    margin-left: 1rem;
+}
+
+/* Sticky Bottom Ad */
+.ad-sticky-bottom {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 90px;
+    z-index: 200;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--outline-variant);
+    background: var(--surface);
+}
+
+/* Add bottom padding to body for sticky ad */
+body {
+    padding-bottom: 90px;
+}
+
 /* Responsive */
 @media (max-width: 64rem) {
     .nav-links {
@@ -813,5 +874,19 @@ button {
 
     .studio-name {
         font-size: 0.9rem;
+    }
+
+    /* Hide right canvas ad on mobile */
+    .ad-canvas-right {
+        display: none;
+    }
+
+    /* Smaller sticky bottom ad on mobile */
+    .ad-sticky-bottom {
+        height: 60px;
+    }
+
+    body {
+        padding-bottom: 60px;
     }
 }
