@@ -97,12 +97,11 @@ button {
     gap: 1rem;
 }
 
-/* Logo Section (Left - Stacked) */
+/* Logo Section (Left - Side by Side) */
 .logo-section {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 0.75rem;
     flex-shrink: 0;
 }
 
@@ -117,24 +116,25 @@ button {
     object-fit: contain;
 }
 
-/* Studio Title (Under logo) */
+/* Studio Title (Next to logo) */
 .studio-title {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    padding-left: 0.1rem;
+    gap: 0.4rem;
+    border-left: 2px solid var(--outline-variant);
+    padding-left: 0.75rem;
 }
 
 .studio-icon {
-    font-size: 1rem;
+    font-size: 1.25rem;
     color: var(--primary);
 }
 
 .studio-name {
-    font-weight: 600;
-    font-size: 0.8rem;
-    color: var(--secondary);
-    letter-spacing: 0.02em;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--on-surface);
+    letter-spacing: 0.01em;
 }
 
 /* Navigation (Right) */
