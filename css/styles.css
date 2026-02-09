@@ -77,7 +77,7 @@ button {
 
 /* App Bar - Fixed height is fine for navbar */
 .app-bar {
-    height: 3.5rem;
+    height: 4rem;
     background: var(--surface);
     border-bottom: 1px solid var(--surface-variant);
     display: flex;
@@ -90,83 +90,55 @@ button {
 
 .app-bar-container {
     width: 100%;
-    max-width: 100rem;
+    max-width: 1400px;
     padding: 0 1.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1.5rem;
 }
 
 .logo-section {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    flex-shrink: 0;
 }
 
-.logo-icon {
-    font-size: 1.75rem;
-    color: var(--primary);
-    transition: transform 0.3s;
-}
-
-.logo-section:hover .logo-icon {
-    transform: rotate(15deg) scale(1.1);
-}
-
-.logo-text {
+.site-logo {
     display: flex;
-    flex-direction: column;
-    line-height: 1.1;
+    align-items: center;
 }
 
-.brand-name {
-    font-weight: 700;
-    font-size: 1rem;
-}
-
-.app-name {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--primary);
-    font-weight: 600;
+.logo-img {
+    height: 2.25rem;
+    width: auto;
+    object-fit: contain;
 }
 
 .nav-links {
     display: flex;
-    gap: 1.75rem;
+    gap: 1.25rem;
+    flex: 1;
+    justify-content: center;
 }
 
 .nav-link {
     font-weight: 500;
     font-size: 0.85rem;
-    position: relative;
+    color: var(--on-surface);
+    white-space: nowrap;
     transition: color var(--transition);
-}
-
-.nav-link::after {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 2px;
-    bottom: -4px;
-    left: 0;
-    background: var(--primary);
-    transition: width 0.3s;
 }
 
 .nav-link:hover {
     color: var(--primary);
 }
 
-.nav-link:hover::after {
-    width: 100%;
-}
-
 .app-actions {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .icon-btn {
@@ -178,39 +150,64 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background var(--transition);
+    transition: background var(--transition), color var(--transition);
 }
 
 .icon-btn:hover {
     background: var(--surface-variant);
+    color: var(--primary);
 }
 
 .icon-btn:active {
     transform: scale(0.95);
 }
 
-.cart-badge {
+.cart-btn {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.5rem;
     color: var(--on-surface-variant);
+    transition: color var(--transition);
+}
+
+.cart-btn:hover {
+    color: var(--primary);
 }
 
 .cart-count {
     position: absolute;
-    top: 0.125rem;
-    right: 0.125rem;
+    top: 0;
+    right: 0;
     background: var(--error);
     color: var(--on-error);
-    font-size: 0.6rem;
+    font-size: 0.55rem;
     font-weight: 700;
     padding: 0.1rem 0.3rem;
     border-radius: 0.5rem;
-    min-width: 1rem;
+    min-width: 0.9rem;
     text-align: center;
+}
+
+.search-btn svg {
+    fill: currentColor;
 }
 
 .mobile-menu-btn {
     display: none;
+}
+
+/* Studio Branding (Centered) */
+.studio-branding {
+    background: var(--primary);
+    color: var(--on-primary);
+    text-align: center;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
 }
 
 /* Main Layout */
