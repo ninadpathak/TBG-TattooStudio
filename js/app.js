@@ -25,6 +25,13 @@ class TattooTryOnApp {
             loadingOverlay: document.getElementById('loadingOverlay'),
             loadingText: document.getElementById('loadingText'),
 
+            // Floating Controls
+            floatingControls: document.getElementById('floatingControls'),
+            opacitySlider: document.getElementById('opacitySlider'),
+            opacityValue: document.getElementById('opacityValue'),
+            rotationSlider: document.getElementById('rotationSlider'),
+            rotationValue: document.getElementById('rotationValue'),
+
             // Actions
             clearButton: document.getElementById('clearButton'),
             downloadButton: document.getElementById('downloadButton'),
@@ -38,12 +45,18 @@ class TattooTryOnApp {
             this.elements.canvasContainer
         );
 
+        // Setup canvas callbacks
+        this.canvas.onSelectionChange = (isSelected) => {
+            this.toggleFloatingControls(isSelected);
+        };
+
         this.init();
     }
 
     init() {
         this.setupUploadZones();
         this.setupActions();
+        this.setupFloatingControls();
         this.setupTheme();
     }
 
@@ -218,6 +231,43 @@ class TattooTryOnApp {
 
     hideLoading() {
         this.elements.loadingOverlay.classList.remove('visible');
+    }
+
+    setupFloatingControls() {
+        const { opacitySlider, opacityValue, rotationSlider, rotationValue } = this.elements;
+
+        if (opacitySlider) {
+            opacitySlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                opacityValue.textContent = `${value}%`;
+                this.canvas.setOpacity(value);
+            });
+        }
+
+        if (rotationSlider) {
+            rotationSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                rotationValue.textContent = `${value}°`;
+                this.canvas.setRotation(value);
+            });
+        }
+    }
+
+    toggleFloatingControls(show) {
+        if (this.elements.floatingControls) {
+            this.elements.floatingControls.classList.toggle('visible', show);
+        }
+    }
+
+    resetFloatingControls() {
+        if (this.elements.opacitySlider) {
+            this.elements.opacitySlider.value = 100;
+            this.elements.opacityValue.textContent = '100%';
+        }
+        if (this.elements.rotationSlider) {
+            this.elements.rotationSlider.value = 0;
+            this.elements.rotationValue.textContent = '0°';
+        }
     }
 }
 

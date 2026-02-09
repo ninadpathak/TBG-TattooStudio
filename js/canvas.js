@@ -35,6 +35,7 @@ export class CanvasController {
 
         // Callbacks
         this.onTattooPlaced = null;
+        this.onSelectionChange = null;
 
         this.setupEventListeners();
     }
@@ -54,7 +55,7 @@ export class CanvasController {
         // Click outside canvas to deselect
         document.addEventListener('click', (e) => {
             if (!this.canvas.contains(e.target) && this.isSelected) {
-                this.isSelected = false;
+                this.setSelected(false);
                 this.render();
             }
         });
@@ -125,6 +126,15 @@ export class CanvasController {
             y >= bounds.y && y <= bounds.y + bounds.height;
     }
 
+    setSelected(selected) {
+        if (this.isSelected !== selected) {
+            this.isSelected = selected;
+            if (this.onSelectionChange) {
+                this.onSelectionChange(selected);
+            }
+        }
+    }
+
     handleMouseDown(e) {
         if (!this.tattooImage) return;
         e.stopPropagation();
@@ -148,7 +158,7 @@ export class CanvasController {
 
         // Check if clicking on tattoo
         if (this.isOverTattoo(pos.x, pos.y)) {
-            this.isSelected = true;
+            this.setSelected(true);
             this.isDragging = true;
             this.dragStart = pos;
             this.tattooStart = {
@@ -160,7 +170,7 @@ export class CanvasController {
             this.render();
         } else {
             // Clicked outside tattoo - deselect
-            this.isSelected = false;
+            this.setSelected(false);
             this.render();
         }
     }
@@ -265,7 +275,7 @@ export class CanvasController {
         const imgMaxDimension = Math.max(img.width, img.height);
         this.tattoo.scale = maxDimension / imgMaxDimension;
 
-        this.isSelected = true; // Auto-select when placed
+        this.setSelected(true); // Auto-select when placed
         this.render();
 
         if (this.onTattooPlaced) {
@@ -303,7 +313,7 @@ export class CanvasController {
     clear() {
         this.bodyImage = null;
         this.tattooImage = null;
-        this.isSelected = false;
+        this.setSelected(false);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
