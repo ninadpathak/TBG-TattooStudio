@@ -667,21 +667,18 @@ button {
     color: var(--primary);
 }
 
-/* Floating Controls (Opacity/Rotation near tattoo) */
+/* Controls Below Canvas */
 .floating-controls {
-    position: absolute;
-    bottom: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
     background: var(--surface);
     border: 1px solid var(--outline-variant);
     border-radius: 2rem;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 1.25rem;
     display: none;
     align-items: center;
-    gap: 1rem;
-    box-shadow: var(--shadow-2);
-    z-index: 50;
+    justify-content: center;
+    gap: 1.5rem;
+    box-shadow: var(--shadow-1);
+    margin-top: 1rem;
 }
 
 .floating-controls.visible {
