@@ -202,34 +202,36 @@
 
         <!-- Canvas Area -->
         <section class="canvas-area" id="canvasContainer">
-            <div class="canvas-wrapper" id="canvasWrapper">
-                <canvas id="mainCanvas"></canvas>
+            <div class="canvas-column">
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <canvas id="mainCanvas"></canvas>
 
-                <div class="empty-state" id="canvasPlaceholder">
-                    <div class="empty-icon-circle">
-                        <span class="material-symbols-outlined">touch_app</span>
+                    <div class="empty-state" id="canvasPlaceholder">
+                        <div class="empty-icon-circle">
+                            <span class="material-symbols-outlined">touch_app</span>
+                        </div>
+                        <h2>Ready to Ink?</h2>
+                        <p>Upload a photo to get started.</p>
                     </div>
-                    <h2>Ready to Ink?</h2>
-                    <p>Upload a photo to get started.</p>
+
+                    <div class="loader-overlay" id="loadingOverlay">
+                        <div class="md-spinner"></div>
+                        <p id="loadingText">Processing...</p>
+                    </div>
                 </div>
 
-                <div class="loader-overlay" id="loadingOverlay">
-                    <div class="md-spinner"></div>
-                    <p id="loadingText">Processing...</p>
-                </div>
-            </div>
-
-            <!-- Controls Below Canvas -->
-            <div class="floating-controls" id="floatingControls">
-                <div class="floating-control-group">
-                    <span class="material-symbols-outlined">opacity</span>
-                    <input type="range" id="opacitySlider" min="10" max="100" value="100" class="mini-slider">
-                    <span id="opacityValue">100%</span>
-                </div>
-                <div class="floating-control-group">
-                    <span class="material-symbols-outlined">rotate_right</span>
-                    <input type="range" id="rotationSlider" min="-180" max="180" value="0" class="mini-slider">
-                    <span id="rotationValue">0°</span>
+                <!-- Controls Below Canvas -->
+                <div class="floating-controls" id="floatingControls">
+                    <div class="floating-control-group">
+                        <span class="material-symbols-outlined">opacity</span>
+                        <input type="range" id="opacitySlider" min="10" max="100" value="100" class="mini-slider">
+                        <span id="opacityValue">100%</span>
+                    </div>
+                    <div class="floating-control-group">
+                        <span class="material-symbols-outlined">rotate_right</span>
+                        <input type="range" id="rotationSlider" min="-180" max="180" value="0" class="mini-slider">
+                        <span id="rotationValue">0°</span>
+                    </div>
                 </div>
             </div>
 

@@ -51,8 +51,8 @@ class TattooTryOnApp {
         );
 
         // Setup canvas callbacks
-        this.canvas.onTattooPlaced = () => {
-            this.toggleFloatingControls(true);
+        this.canvas.onSelectionChange = (isSelected) => {
+            this.toggleFloatingControls(isSelected);
         };
 
         this.init();
