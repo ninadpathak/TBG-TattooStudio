@@ -51,8 +51,8 @@ class TattooTryOnApp {
         );
 
         // Setup canvas callbacks
-        this.canvas.onSelectionChange = (isSelected) => {
-            this.toggleFloatingControls(isSelected);
+        this.canvas.onTattooPlaced = () => {
+            this.toggleFloatingControls(true);
         };
 
         this.init();
@@ -236,6 +236,10 @@ class TattooTryOnApp {
             this.setStepState(this.elements.stepCard1, 'active');
             this.setStepState(this.elements.stepCard2, 'locked');
             this.setStepState(this.elements.stepCard3, 'locked');
+
+            // Hide floating controls
+            this.toggleFloatingControls(false);
+            this.resetFloatingControls();
 
             this.updateDownloadButton();
         });

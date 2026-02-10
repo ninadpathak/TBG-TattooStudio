@@ -1,44 +1,44 @@
 /* TattooTryOn - Material Design Theme (Percentage-based) */
 
 :root {
-    /* Colors - Light */
-    --primary: #6750a4;
+    /* Colors - TBG Brand (Navy + Rose) */
+    --primary: #3d4f5f;
     --on-primary: #fff;
-    --primary-container: #eaddff;
-    --on-primary-container: #21005d;
-    --secondary: #625b71;
-    --secondary-container: #e8def8;
-    --on-secondary-container: #1d192b;
-    --surface: #fffbfe;
-    --on-surface: #1c1b1f;
-    --surface-variant: #e7e0ec;
-    --on-surface-variant: #49454f;
-    --outline: #79747e;
-    --outline-variant: #c4c7c5;
-    --error: #b3261e;
+    --primary-container: #d6dee5;
+    --on-primary-container: #1a2a36;
+    --secondary: #c62828;
+    --secondary-container: #fce4ec;
+    --on-secondary-container: #5d1414;
+    --surface: #fafafa;
+    --on-surface: #1c1e21;
+    --surface-variant: #eceef0;
+    --on-surface-variant: #44474b;
+    --outline: #6e7278;
+    --outline-variant: #c8cacd;
+    --error: #c62828;
     --on-error: #fff;
 
     /* Typography & Shape */
     --font: 'Outfit', system-ui, sans-serif;
     --radius: 0.75rem;
-    --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-    --shadow-2: 0 3px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
+    --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-2: 0 3px 6px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
     --transition: 0.2s ease;
 }
 
 [data-theme="dark"] {
-    --primary: #d0bcff;
-    --on-primary: #381e72;
-    --primary-container: #4f378b;
-    --on-primary-container: #eaddff;
-    --secondary: #ccc2dc;
-    --secondary-container: #4a4458;
-    --on-secondary-container: #e8def8;
-    --surface: #1c1b1f;
-    --on-surface: #e6e1e5;
-    --surface-variant: #49454f;
-    --on-surface-variant: #cac4d0;
-    --outline: #938f99;
+    --primary: #8eaabb;
+    --on-primary: #1a2a36;
+    --primary-container: #3d4f5f;
+    --on-primary-container: #d6dee5;
+    --secondary: #ef9a9a;
+    --secondary-container: #4a1c1c;
+    --on-secondary-container: #fce4ec;
+    --surface: #1a1c1e;
+    --on-surface: #e2e4e6;
+    --surface-variant: #2c3035;
+    --on-surface-variant: #c0c4c9;
+    --outline: #8a8e93;
 }
 
 /* Reset */

@@ -364,14 +364,14 @@ export class CanvasController {
         this.ctx.save();
 
         // Draw border
-        this.ctx.strokeStyle = '#6750a4';
+        this.ctx.strokeStyle = '#3d4f5f';
         this.ctx.lineWidth = Math.max(1, hs * 0.25);
         this.ctx.setLineDash([6, 4]);
         this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
         this.ctx.setLineDash([]);
 
         // Draw corner handles
-        this.ctx.fillStyle = '#6750a4';
+        this.ctx.fillStyle = '#3d4f5f';
 
         for (const corner of bounds.corners) {
             this.ctx.beginPath();
@@ -383,7 +383,7 @@ export class CanvasController {
             this.ctx.beginPath();
             this.ctx.arc(corner.x, corner.y, Math.max(1, hs - 2), 0, Math.PI * 2);
             this.ctx.fill();
-            this.ctx.fillStyle = '#6750a4';
+            this.ctx.fillStyle = '#3d4f5f';
         }
 
         this.ctx.restore();
