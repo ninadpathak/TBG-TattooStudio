@@ -36,6 +36,11 @@ class TattooTryOnApp {
             clearButton: document.getElementById('clearButton'),
             downloadButton: document.getElementById('downloadButton'),
 
+            // Step cards
+            stepCard1: document.getElementById('stepCard1'),
+            stepCard2: document.getElementById('stepCard2'),
+            stepCard3: document.getElementById('stepCard3'),
+
             // Theme
             themeToggle: document.getElementById('themeToggle')
         };
@@ -58,6 +63,13 @@ class TattooTryOnApp {
         this.setupActions();
         this.setupFloatingControls();
         this.setupTheme();
+    }
+
+    // Step progression: 'active' | 'completed' | 'locked'
+    setStepState(card, state) {
+        if (!card) return;
+        card.classList.remove('active', 'completed', 'locked');
+        card.classList.add(state);
     }
 
     setupTheme() {
@@ -145,6 +157,10 @@ class TattooTryOnApp {
             this.elements.mainCanvas.style.display = 'block';
             this.elements.canvasWrapper.classList.add('has-image');
 
+            // Step progression: step 1 done, step 2 active
+            this.setStepState(this.elements.stepCard1, 'completed');
+            this.setStepState(this.elements.stepCard2, 'active');
+
             this.updateDownloadButton();
         } catch (error) {
             console.error('Failed to load body image:', error);
@@ -173,6 +189,11 @@ class TattooTryOnApp {
                 this.elements.tattooUploadZone.classList.add('has-image');
                 this.canvas.setTattooImage(img);
                 this.hideLoading();
+
+                // Step progression: step 2 done, step 3 active
+                this.setStepState(this.elements.stepCard2, 'completed');
+                this.setStepState(this.elements.stepCard3, 'active');
+
                 this.updateDownloadButton();
             };
             img.src = dataUrl;
@@ -186,6 +207,11 @@ class TattooTryOnApp {
             this.elements.tattooPreview.src = img.src;
             this.elements.tattooUploadZone.classList.add('has-image');
             this.canvas.setTattooImage(img);
+
+            // Step progression even on fallback
+            this.setStepState(this.elements.stepCard2, 'completed');
+            this.setStepState(this.elements.stepCard3, 'active');
+
             this.updateDownloadButton();
         }
     }
@@ -205,6 +231,11 @@ class TattooTryOnApp {
             this.elements.tattooPreview.src = '';
             this.elements.bodyImageInput.value = '';
             this.elements.tattooImageInput.value = '';
+
+            // Reset step progression
+            this.setStepState(this.elements.stepCard1, 'active');
+            this.setStepState(this.elements.stepCard2, 'locked');
+            this.setStepState(this.elements.stepCard3, 'locked');
 
             this.updateDownloadButton();
         });

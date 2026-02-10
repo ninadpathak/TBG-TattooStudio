@@ -102,9 +102,12 @@
 
             <div class="sidebar-content">
                 <!-- Step 1: Base Photo -->
-                <div class="control-card">
+                <div class="control-card step-card active" id="stepCard1">
                     <div class="card-header">
-                        <span class="step-badge">1</span>
+                        <span class="step-badge">
+                            <span class="step-number">1</span>
+                            <span class="step-check material-symbols-outlined">check</span>
+                        </span>
                         <h3>Your Photo</h3>
                     </div>
                     <div class="upload-area" id="bodyUploadZone">
@@ -121,9 +124,12 @@
                 </div>
 
                 <!-- Step 2: Tattoo -->
-                <div class="control-card">
+                <div class="control-card step-card locked" id="stepCard2">
                     <div class="card-header">
-                        <span class="step-badge">2</span>
+                        <span class="step-badge">
+                            <span class="step-number">2</span>
+                            <span class="step-check material-symbols-outlined">check</span>
+                        </span>
                         <h3>Tattoo Design</h3>
                     </div>
                     <div class="upload-area" id="tattooUploadZone">
@@ -143,10 +149,13 @@
                     </div>
                 </div>
 
-                <!-- Instructions Card -->
-                <div class="control-card instructions-card">
+                <!-- Step 3: Instructions -->
+                <div class="control-card step-card locked instructions-card" id="stepCard3">
                     <div class="card-header">
-                        <span class="step-badge">3</span>
+                        <span class="step-badge">
+                            <span class="step-number">3</span>
+                            <span class="step-check material-symbols-outlined">check</span>
+                        </span>
                         <h3>Position Your Tattoo</h3>
                     </div>
                     <ul class="instructions-list">

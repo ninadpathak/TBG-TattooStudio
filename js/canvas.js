@@ -30,8 +30,9 @@ export class CanvasController {
         this.dragStart = { x: 0, y: 0 };
         this.tattooStart = { x: 0, y: 0, scale: 1 };
 
-        // Handle size
-        this.handleSize = 12;
+        // Handle size (dynamic, calculated per render)
+        this.handleSizeBase = 12;
+        this.handleSizeMin = 4;
 
         // Callbacks
         this.onTattooPlaced = null;
@@ -52,8 +53,8 @@ export class CanvasController {
         this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
         this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
 
-        // Click outside canvas to deselect
-        document.addEventListener('click', (e) => {
+        // Click outside canvas to deselect (use mousedown to avoid race with canvas click)
+        document.addEventListener('mousedown', (e) => {
             if (!this.canvas.contains(e.target) && this.isSelected) {
                 this.setSelected(false);
                 this.render();
@@ -103,12 +104,22 @@ export class CanvasController {
         };
     }
 
+    // Compute handle size proportional to tattoo
+    getHandleSize() {
+        if (!this.tattooImage) return this.handleSizeBase;
+        const w = this.tattoo.originalWidth * this.tattoo.scale;
+        const h = this.tattoo.originalHeight * this.tattoo.scale;
+        const minDim = Math.min(w, h);
+        // Handle = 8% of smallest dimension, clamped
+        return Math.max(this.handleSizeMin, Math.min(this.handleSizeBase, minDim * 0.08));
+    }
+
     // Check if point is over a resize handle
     getHandleAtPoint(x, y) {
         if (!this.isSelected || !this.tattooImage) return null;
 
         const bounds = this.getTattooBounds();
-        const hs = this.handleSize * (this.canvas.width / this.canvas.getBoundingClientRect().width);
+        const hs = this.getHandleSize() * 1.5; // slightly larger hit area
 
         for (const corner of bounds.corners) {
             if (x >= corner.x - hs && x <= corner.x + hs &&
@@ -348,17 +359,18 @@ export class CanvasController {
         const bounds = this.getTattooBounds();
         if (!bounds) return;
 
+        const hs = this.getHandleSize();
+
         this.ctx.save();
 
         // Draw border
         this.ctx.strokeStyle = '#6750a4';
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = Math.max(1, hs * 0.25);
         this.ctx.setLineDash([6, 4]);
         this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
         this.ctx.setLineDash([]);
 
         // Draw corner handles
-        const hs = this.handleSize;
         this.ctx.fillStyle = '#6750a4';
 
         for (const corner of bounds.corners) {
@@ -369,7 +381,7 @@ export class CanvasController {
             // White inner circle
             this.ctx.fillStyle = '#ffffff';
             this.ctx.beginPath();
-            this.ctx.arc(corner.x, corner.y, hs - 3, 0, Math.PI * 2);
+            this.ctx.arc(corner.x, corner.y, Math.max(1, hs - 2), 0, Math.PI * 2);
             this.ctx.fill();
             this.ctx.fillStyle = '#6750a4';
         }
