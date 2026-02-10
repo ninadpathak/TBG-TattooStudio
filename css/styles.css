@@ -77,7 +77,7 @@ button {
 
 /* App Bar */
 .app-bar {
-    height: 4rem;
+    height: 4.5rem;
     background: var(--surface);
     border-bottom: 1px solid var(--surface-variant);
     display: flex;
@@ -94,14 +94,13 @@ button {
     padding: 0 1.5rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
-/* Logo Section (Left - Side by Side) */
+/* Logo */
 .logo-section {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
     flex-shrink: 0;
 }
 
@@ -111,35 +110,15 @@ button {
 }
 
 .logo-img {
-    height: 2.25rem;
+    height: 2.5rem;
     width: auto;
     object-fit: contain;
 }
 
-/* Studio Title (Next to logo) */
-.studio-title {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    border-left: 2px solid var(--outline-variant);
-    padding-left: 0.75rem;
-}
-
-.studio-icon {
-    font-size: 1.25rem;
-    color: var(--primary);
-}
-
-.studio-name {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--on-surface);
-    letter-spacing: 0.01em;
-}
-
-/* Navigation (Right) */
+/* Navigation */
 .nav-links {
     display: flex;
+    align-items: center;
     gap: 1.5rem;
     margin-left: auto;
 }
@@ -150,12 +129,69 @@ button {
     color: var(--on-surface);
     white-space: nowrap;
     transition: color var(--transition);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
 }
 
 .nav-link:hover {
     color: var(--primary);
 }
 
+/* Dropdown */
+.nav-dropdown {
+    position: relative;
+}
+
+.dropdown-arrow {
+    fill: currentColor;
+    transition: transform 0.2s;
+}
+
+.nav-dropdown:hover .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--outline-variant);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-2);
+    list-style: none;
+    padding: 0.5rem 0;
+    min-width: 200px;
+    z-index: 200;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu {
+    display: block;
+}
+
+.nav-dropdown-menu li a {
+    display: block;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.9rem;
+    color: var(--on-surface);
+    white-space: nowrap;
+    transition: background var(--transition), color var(--transition);
+}
+
+.nav-dropdown-menu li a:hover {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
+}
+
+/* Actions */
 .app-actions {
     display: flex;
     align-items: center;
@@ -200,8 +236,8 @@ button {
 
 .cart-count {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: -2px;
+    right: -4px;
     background: var(--error);
     color: var(--on-error);
     font-size: 0.55rem;
@@ -212,25 +248,10 @@ button {
     text-align: center;
 }
 
-.search-btn svg {
-    fill: currentColor;
-}
-
 .mobile-menu-btn {
     display: none;
 }
 
-/* Studio Branding (Centered) */
-.studio-branding {
-    background: var(--primary);
-    color: var(--on-primary);
-    text-align: center;
-    padding: 0.5rem 1rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    letter-spacing: 0.05em;
-    flex-shrink: 0;
-}
 
 /* Main Layout */
 .main-layout {
@@ -788,13 +809,6 @@ body {
     .sidebar {
         width: 28%;
         min-width: 240px;
-    }
-
-    .studio-title {
-        position: static;
-        transform: none;
-        flex: 1;
-        justify-content: center;
     }
 }
 
