@@ -55,6 +55,10 @@ class TattooTryOnApp {
             this.toggleFloatingControls(isSelected);
         };
 
+        this.canvas.onTattooRemoved = () => {
+            this.handleTattooRemoved();
+        };
+
         this.init();
     }
 
@@ -292,6 +296,23 @@ class TattooTryOnApp {
         if (this.elements.floatingControls) {
             this.elements.floatingControls.classList.toggle('visible', show);
         }
+    }
+
+    handleTattooRemoved() {
+        // Reset tattoo upload UI
+        this.elements.tattooUploadZone.classList.remove('has-image');
+        this.elements.tattooPreview.src = '';
+        this.elements.tattooImageInput.value = '';
+
+        // Reset step progression
+        this.setStepState(this.elements.stepCard2, 'active');
+        this.setStepState(this.elements.stepCard3, 'locked');
+
+        // Hide floating controls
+        this.toggleFloatingControls(false);
+        this.resetFloatingControls();
+
+        this.updateDownloadButton();
     }
 
     resetFloatingControls() {

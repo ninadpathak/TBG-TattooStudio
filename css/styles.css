@@ -59,7 +59,8 @@ body {
     font-family: var(--font);
     background: var(--surface);
     color: var(--on-surface);
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     transition: background var(--transition), color var(--transition);
@@ -259,7 +260,7 @@ button {
     flex: 1;
     min-height: 0;
     /* Important for flex children to respect overflow */
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Sidebar - Percentage width */
@@ -619,10 +620,10 @@ button {
     flex: 1;
     background: var(--surface-variant);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 3%;
-    overflow: hidden;
+    overflow: auto;
     background-image: radial-gradient(var(--outline-variant) 1px, transparent 1px);
     background-size: 1.25rem 1.25rem;
     min-width: 0;

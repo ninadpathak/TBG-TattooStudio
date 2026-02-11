@@ -32,10 +32,103 @@ async function initBackgroundRemoval() {
 }
 
 /**
+ * Calculate color distance for better edge detection
+ */
+function colorDistance(r1, g1, b1, r2, g2, b2) {
+    return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+}
+
+/**
+ * Check if a color is likely background (white/light/gray)
+ */
+function isBackgroundColor(r, g, b, threshold = 200) {
+    // Brightness-based detection
+    const brightness = (r + g + b) / 3;
+    
+    // High brightness = likely background
+    if (brightness > threshold) return true;
+    
+    // Near-grayscale (all channels similar) with high values
+    const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+    if (brightness > 180 && maxDiff < 30) return true;
+    
+    return false;
+}
+
+/**
+ * Enhanced canvas-based background removal with edge feathering
+ */
+function removeBackgroundEnhanced(imageData, threshold = 200, featherRadius = 2) {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    
+    // First pass: detect background pixels
+    const alphaMap = new Uint8Array(width * height);
+    
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const idx = i / 4;
+        
+        if (isBackgroundColor(r, g, b, threshold)) {
+            // Calculate alpha based on how close to pure white
+            const brightness = (r + g + b) / 3;
+            const closeness = (brightness - threshold) / (255 - threshold);
+            alphaMap[idx] = Math.max(0, 255 - (closeness * 255));
+        } else {
+            alphaMap[idx] = 255;
+        }
+    }
+    
+    // Second pass: edge feathering (smooth transitions at edges)
+    if (featherRadius > 0) {
+        const featheredAlpha = new Uint8Array(alphaMap);
+        
+        for (let y = featherRadius; y < height - featherRadius; y++) {
+            for (let x = featherRadius; x < width - featherRadius; x++) {
+                const idx = y * width + x;
+                
+                // Only process edge pixels
+                if (alphaMap[idx] > 0 && alphaMap[idx] < 255) {
+                    let totalAlpha = 0;
+                    let count = 0;
+                    
+                    // Sample surrounding pixels
+                    for (let dy = -featherRadius; dy <= featherRadius; dy++) {
+                        for (let dx = -featherRadius; dx <= featherRadius; dx++) {
+                            const sampleIdx = (y + dy) * width + (x + dx);
+                            totalAlpha += alphaMap[sampleIdx];
+                            count++;
+                        }
+                    }
+                    
+                    featheredAlpha[idx] = Math.round(totalAlpha / count);
+                }
+            }
+        }
+        
+        // Apply feathered alpha
+        for (let i = 0; i < data.length; i += 4) {
+            const idx = i / 4;
+            data[i + 3] = featheredAlpha[idx];
+        }
+    } else {
+        // Apply without feathering
+        for (let i = 0; i < data.length; i += 4) {
+            data[i + 3] = alphaMap[i / 4];
+        }
+    }
+    
+    return imageData;
+}
+
+/**
  * Simple canvas-based white/light background removal
  * Works well for tattoo images with white or light backgrounds
  */
-function removeWhiteBackground(imageData, threshold = 240) {
+function removeWhiteBackground(imageData, threshold = 200) {
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
@@ -48,10 +141,10 @@ function removeWhiteBackground(imageData, threshold = 240) {
             data[i + 3] = 0; // Set alpha to 0 (transparent)
         }
         // Also handle near-white grays
-        else if (r > 200 && g > 200 && b > 200) {
+        else if (r > 180 && g > 180 && b > 180) {
             // Fade based on how close to white
             const brightness = (r + g + b) / 3;
-            const alpha = Math.max(0, 255 - ((brightness - 200) * 4.6));
+            const alpha = Math.max(0, 255 - ((brightness - 180) * 2.5));
             data[i + 3] = Math.min(data[i + 3], alpha);
         }
     }
@@ -81,9 +174,11 @@ async function removeBackgroundCanvas(imageInput, onProgress = () => { }) {
             ctx.drawImage(img, 0, 0);
             onProgress(50);
 
-            // Get image data and remove white background
+            // Get image data and remove white background with enhanced algorithm
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            removeWhiteBackground(imageData, 230);
+            
+            // Use enhanced removal with feathering for smoother edges
+            removeBackgroundEnhanced(imageData, 200, 2);
             onProgress(80);
 
             ctx.putImageData(imageData, 0, 0);
@@ -143,7 +238,7 @@ export async function removeImageBackground(imageInput, onProgress = () => { }) 
         }
     }
 
-    // Fallback to canvas-based removal
+    // Fallback to canvas-based removal with enhanced algorithm
     console.log('Using canvas-based background removal');
     onProgress(10);
     return removeBackgroundCanvas(imageInput, onProgress);

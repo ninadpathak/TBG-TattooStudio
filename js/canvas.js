@@ -39,10 +39,11 @@ export class CanvasController {
         this.onSelectionChange = null;
 
         this.setupEventListeners();
+        this.setupKeyboardHandler();
     }
 
     setupEventListeners() {
-        // Mouse events
+        // Mouse events - use bind to maintain context
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
@@ -64,12 +65,35 @@ export class CanvasController {
         this.canvas.style.cursor = 'default';
     }
 
+    setupKeyboardHandler() {
+        // Handle Delete/Backspace key to remove tattoo
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && this.isSelected && this.tattooImage) {
+                e.preventDefault();
+                this.removeTattoo();
+            }
+        });
+    }
+
+    removeTattoo() {
+        this.tattooImage = null;
+        this.setSelected(false);
+        this.render();
+        
+        // Notify app to reset UI state
+        if (this.onTattooRemoved) {
+            this.onTattooRemoved();
+        }
+    }
+
     getEventPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
+        
+        // Calculate scale factors between CSS display size and canvas internal resolution
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
 
-        if (e.touches) {
+        if (e.touches && e.touches.length > 0) {
             return {
                 x: (e.touches[0].clientX - rect.left) * scaleX,
                 y: (e.touches[0].clientY - rect.top) * scaleY
@@ -149,6 +173,7 @@ export class CanvasController {
     handleMouseDown(e) {
         if (!this.tattooImage) return;
         e.stopPropagation();
+        e.preventDefault();
 
         const pos = this.getEventPosition(e);
 
@@ -244,7 +269,8 @@ export class CanvasController {
         // Simulate mouse event
         this.handleMouseDown({
             touches: e.touches,
-            stopPropagation: () => { }
+            stopPropagation: () => { },
+            preventDefault: () => { }
         });
     }
 
@@ -266,7 +292,9 @@ export class CanvasController {
 
         // Let CSS handle the display sizing
         this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
+        this.canvas.style.height = 'auto';
+        this.canvas.style.maxWidth = '100%';
+        this.canvas.style.maxHeight = '100%';
         this.canvas.style.objectFit = 'contain';
 
         this.render();
