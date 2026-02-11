@@ -1,5 +1,6 @@
 // Canvas Controller - Direct Manipulation
 // Click tattoo to select, drag to move, corner handles to resize
+// Drag background to pan the view
 
 export class CanvasController {
     constructor(canvasElement, containerElement) {
@@ -11,7 +12,7 @@ export class CanvasController {
         this.bodyImage = null;
         this.tattooImage = null;
 
-        // Tattoo transform state
+        // Tattoo transform state (World Coordinates)
         this.tattoo = {
             x: 0,
             y: 0,
@@ -22,12 +23,25 @@ export class CanvasController {
             originalHeight: 0
         };
 
+        // View Transform (Pan/Zoom)
+        // Allows moving the workspace 'camera'
+        this.view = {
+            x: 0,
+            y: 0,
+            scale: 1
+        };
+
         // Interaction state
         this.isSelected = false;
-        this.isDragging = false;
-        this.isResizing = false;
+        this.isDragging = false; // Dragging tattoo
+        this.isResizing = false; // Resizing tattoo
+        this.isPanning = false;  // Panning view (background)
         this.activeHandle = null;
-        this.dragStart = { x: 0, y: 0 };
+
+        // Track start positions for interactions
+        this.dragStart = { x: 0, y: 0 }; // World coordinates for tattoo drag
+        this.panStart = { x: 0, y: 0 };  // Screen/Raw coordinates for panning
+        this.viewStart = { x: 0, y: 0 };
         this.tattooStart = { x: 0, y: 0, scale: 1 };
 
         // Display scale (internal pixels per screen pixel)
@@ -35,18 +49,18 @@ export class CanvasController {
 
         // Handle size (dynamic, calculated per render)
         this.handleSizeBase = 12;
-        this.handleSizeMin = 4;
 
         // Callbacks
         this.onTattooPlaced = null;
         this.onSelectionChange = null;
+        this.onTattooRemoved = null;
 
         this.setupEventListeners();
         this.setupKeyboardHandler();
     }
 
     setupEventListeners() {
-        // Mouse events - use bind to maintain context
+        // Mouse events
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
@@ -57,19 +71,13 @@ export class CanvasController {
         this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
         this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
 
-        // Click outside canvas to deselect (use mousedown to avoid race with canvas click)
-        document.addEventListener('mousedown', (e) => {
-            if (!this.canvas.contains(e.target) && this.isSelected) {
-                this.setSelected(false);
-                this.render();
-            }
-        });
+        // Click outside canvas to deselect (handled via window/document if needed)
+        // But we handle background click=deselect internally now to support panning
 
-        this.canvas.style.cursor = 'default';
+        this.canvas.style.cursor = 'grab'; // Default cursor indicates movable background
     }
 
     setupKeyboardHandler() {
-        // Handle Delete/Backspace key to remove tattoo
         document.addEventListener('keydown', (e) => {
             if ((e.key === 'Delete' || e.key === 'Backspace') && this.isSelected && this.tattooImage) {
                 e.preventDefault();
@@ -83,29 +91,61 @@ export class CanvasController {
         this.setSelected(false);
         this.render();
 
-        // Notify app to reset UI state
         if (this.onTattooRemoved) {
             this.onTattooRemoved();
         }
     }
 
-    getEventPosition(e) {
+    /**
+     * Get Event Position in "World" coordinates (accounting for View Pan/Zoom)
+     * Used for interacting with the Tattoo
+     */
+    getWorldPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
-
-        // Calculate scale factors between CSS display size and canvas internal resolution
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
-        this.displayScale = scaleX; // Store for handle calculation
+        this.displayScale = scaleX;
+
+        let clientX = e.clientX;
+        let clientY = e.clientY;
 
         if (e.touches && e.touches.length > 0) {
-            return {
-                x: (e.touches[0].clientX - rect.left) * scaleX,
-                y: (e.touches[0].clientY - rect.top) * scaleY
-            };
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
         }
+
+        // 1. Raw Canvas Coordinates (0,0 is top-left of canvas element)
+        const rawX = (clientX - rect.left) * scaleX;
+        const rawY = (clientY - rect.top) * scaleY;
+
+        // 2. Apply View Transform (Inverse)
+        // World = (Raw - Translate) / Scale
+        const worldX = (rawX - this.view.x) / this.view.scale;
+        const worldY = (rawY - this.view.y) / this.view.scale;
+
+        return { x: worldX, y: worldY };
+    }
+
+    /**
+     * Get Raw Event Position (Screen-relative but scaled to canvas)
+     * Used for Panning calculations
+     */
+    getRawPosition(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+
         return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
         };
     }
 
@@ -132,20 +172,18 @@ export class CanvasController {
         };
     }
 
-    // Compute handle size to be constant screen size (e.g. 16px) converted to canvas pixels
     getHandleSize() {
         if (!this.tattooImage) return this.handleSizeBase;
-        // Target 16px on screen, scaled to canvas coordinates
-        // Ensure it's at least 10 units in canvas space to be visible
-        return Math.max(10, 16 * this.displayScale);
+        // Adjust handle size based on display scale AND view scale
+        // We want constant screen visual size
+        return Math.max(10, 16 * this.displayScale / this.view.scale);
     }
 
-    // Check if point is over a resize handle
     getHandleAtPoint(x, y) {
         if (!this.isSelected || !this.tattooImage) return null;
 
         const bounds = this.getTattooBounds();
-        const hs = this.getHandleSize() * 1.5; // slightly larger hit area
+        const hs = this.getHandleSize() * 1.5;
 
         for (const corner of bounds.corners) {
             if (x >= corner.x - hs && x <= corner.x + hs &&
@@ -173,61 +211,59 @@ export class CanvasController {
     }
 
     handleMouseDown(e) {
-        if (!this.tattooImage) return;
-        e.stopPropagation();
-        e.preventDefault();
+        if (!this.bodyImage) return;
+        // Don't stop propagation immediately, allows internal tracking
 
-        const pos = this.getEventPosition(e);
+        const worldPos = this.getWorldPosition(e);
+        const rawPos = this.getRawPosition(e);
 
-        // Check for handle first
-        const handle = this.getHandleAtPoint(pos.x, pos.y);
-        if (handle) {
-            this.isResizing = true;
-            this.activeHandle = handle;
-            this.dragStart = pos;
-            this.tattooStart = {
-                x: this.tattoo.x,
-                y: this.tattoo.y,
-                scale: this.tattoo.scale
-            };
-            this.canvas.style.cursor = 'nwse-resize';
-            return;
+        if (this.tattooImage) {
+            // 1. Check Resize Handles
+            const handle = this.getHandleAtPoint(worldPos.x, worldPos.y);
+            if (handle) {
+                this.isResizing = true;
+                this.activeHandle = handle;
+                this.dragStart = worldPos;
+                this.tattooStart = { ...this.tattoo };
+                this.canvas.style.cursor = 'nwse-resize';
+                e.preventDefault();
+                return;
+            }
+
+            // 2. Check Tattoo Drag
+            if (this.isOverTattoo(worldPos.x, worldPos.y)) {
+                this.setSelected(true);
+                this.isDragging = true;
+                this.dragStart = worldPos;
+                this.tattooStart = { ...this.tattoo };
+                this.canvas.style.cursor = 'grabbing';
+                this.render();
+                e.preventDefault();
+                return;
+            }
         }
 
-        // Check if clicking on tattoo
-        if (this.isOverTattoo(pos.x, pos.y)) {
-            this.setSelected(true);
-            this.isDragging = true;
-            this.dragStart = pos;
-            this.tattooStart = {
-                x: this.tattoo.x,
-                y: this.tattoo.y,
-                scale: this.tattoo.scale
-            };
-            this.canvas.style.cursor = 'grabbing';
-            this.render();
-        } else {
-            // Clicked outside tattoo - deselect
-            this.setSelected(false);
-            this.render();
-        }
+        // 3. Fallback: Pan View (Background Move)
+        this.setSelected(false);
+        this.isPanning = true;
+        this.panStart = rawPos;
+        this.viewStart = { ...this.view };
+        this.canvas.style.cursor = 'grabbing';
+        this.render();
     }
 
     handleMouseMove(e) {
-        const pos = this.getEventPosition(e);
-
         if (this.isResizing && this.activeHandle) {
-            // Calculate distance from center
-            const dx = pos.x - this.tattoo.x;
-            const dy = pos.y - this.tattoo.y;
+            e.preventDefault();
+            const worldPos = this.getWorldPosition(e);
+
+            // Resizing logic (same as before but using world coordinates)
+            const dx = worldPos.x - this.tattoo.x;
+            const dy = worldPos.y - this.tattoo.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            // Original distance from center
             const origW = this.tattoo.originalWidth * this.tattooStart.scale;
             const origH = this.tattoo.originalHeight * this.tattooStart.scale;
-            const origDistance = Math.sqrt((origW / 2) ** 2 + (origH / 2) ** 2);
-
-            // Calculate scale based on drag start vs current
             const startDx = this.dragStart.x - this.tattooStart.x;
             const startDy = this.dragStart.y - this.tattooStart.y;
             const startDistance = Math.sqrt(startDx * startDx + startDy * startDy);
@@ -236,23 +272,39 @@ export class CanvasController {
                 const scaleRatio = distance / startDistance;
                 this.tattoo.scale = Math.max(0.1, Math.min(5, this.tattooStart.scale * scaleRatio));
             }
+            this.render();
 
-            this.render();
         } else if (this.isDragging) {
-            const dx = pos.x - this.dragStart.x;
-            const dy = pos.y - this.dragStart.y;
-            this.tattoo.x = this.tattooStart.x + dx;
-            this.tattoo.y = this.tattooStart.y + dy;
+            e.preventDefault();
+            const worldPos = this.getWorldPosition(e);
+
+            this.tattoo.x = this.tattooStart.x + (worldPos.x - this.dragStart.x);
+            this.tattoo.y = this.tattooStart.y + (worldPos.y - this.dragStart.y);
             this.render();
-        } else if (this.tattooImage) {
-            // Update cursor based on what's under mouse
-            const handle = this.getHandleAtPoint(pos.x, pos.y);
-            if (handle) {
-                this.canvas.style.cursor = 'nwse-resize';
-            } else if (this.isOverTattoo(pos.x, pos.y)) {
-                this.canvas.style.cursor = 'grab';
+
+        } else if (this.isPanning) {
+            e.preventDefault();
+            const rawPos = this.getRawPosition(e);
+
+            // Allow panning the view
+            this.view.x = this.viewStart.x + (rawPos.x - this.panStart.x);
+            this.view.y = this.viewStart.y + (rawPos.y - this.panStart.y);
+            this.render();
+
+        } else {
+            // Hover states
+            const worldPos = this.getWorldPosition(e);
+            if (this.tattooImage) {
+                const handle = this.getHandleAtPoint(worldPos.x, worldPos.y);
+                if (handle) {
+                    this.canvas.style.cursor = 'nwse-resize';
+                } else if (this.isOverTattoo(worldPos.x, worldPos.y)) {
+                    this.canvas.style.cursor = 'grab';
+                } else {
+                    this.canvas.style.cursor = 'grab'; // Default for background panning
+                }
             } else {
-                this.canvas.style.cursor = 'default';
+                this.canvas.style.cursor = 'grab'; // Default for background panning
             }
         }
     }
@@ -260,15 +312,16 @@ export class CanvasController {
     handleMouseUp() {
         this.isDragging = false;
         this.isResizing = false;
+        this.isPanning = false;
         this.activeHandle = null;
-        this.canvas.style.cursor = 'default';
+
+        // Reset cursor based on hover
+        this.canvas.style.cursor = 'grab';
     }
 
-    // Touch handlers
     handleTouchStart(e) {
-        if (!this.tattooImage) return;
+        if (!this.bodyImage) return;
         e.preventDefault();
-        // Simulate mouse event
         this.handleMouseDown({
             touches: e.touches,
             stopPropagation: () => { },
@@ -277,6 +330,7 @@ export class CanvasController {
     }
 
     handleTouchMove(e) {
+        if (!this.bodyImage) return;
         e.preventDefault();
         this.handleMouseMove({ touches: e.touches });
     }
@@ -288,19 +342,22 @@ export class CanvasController {
     setBodyImage(img) {
         this.bodyImage = img;
 
+        // Reset view
+        this.view = { x: 0, y: 0, scale: 1 };
+
         // Set canvas to actual image dimensions
         this.canvas.width = img.width;
         this.canvas.height = img.height;
 
-        // Let CSS handle the display sizing - ensure aspect ratio is maintained
+        // Styles
         this.canvas.style.width = '100%';
         this.canvas.style.height = 'auto';
         this.canvas.style.maxWidth = '100%';
         this.canvas.style.maxHeight = 'none';
         this.canvas.style.objectFit = 'fill';
-        this.canvas.style.touchAction = 'none'; // Prevent scrolling while dragging
+        this.canvas.style.touchAction = 'none';
 
-        // Update scale immediately for initial render
+        // Update display scale
         requestAnimationFrame(() => {
             const rect = this.canvas.getBoundingClientRect();
             if (rect.width > 0) {
@@ -317,16 +374,21 @@ export class CanvasController {
         this.tattoo.originalWidth = img.width;
         this.tattoo.originalHeight = img.height;
 
-        // Center the tattoo
+        // Position at center of CURRENT VIEW
+
+        // Calculate World Center
+        // WorldCenter = (CanvasWidth/2 - ViewX) / ViewScale -- No, simpler:
+        // The canvas width IS the world width.
+        // So center is just width/2.
+
         this.tattoo.x = this.canvas.width / 2;
         this.tattoo.y = this.canvas.height / 2;
 
-        // Scale tattoo to reasonable size (30% of smallest dimension)
         const maxDimension = Math.min(this.canvas.width, this.canvas.height) * 0.3;
         const imgMaxDimension = Math.max(img.width, img.height);
         this.tattoo.scale = maxDimension / imgMaxDimension;
 
-        this.setSelected(true); // Auto-select when placed
+        this.setSelected(true);
         this.render();
 
         if (this.onTattooPlaced) {
@@ -349,18 +411,6 @@ export class CanvasController {
         this.render();
     }
 
-    resetTattooPosition() {
-        if (!this.tattooImage) return;
-        this.tattoo.x = this.canvas.width / 2;
-        this.tattoo.y = this.canvas.height / 2;
-        const maxDimension = Math.min(this.canvas.width, this.canvas.height) * 0.3;
-        const imgMaxDimension = Math.max(this.tattooImage.width, this.tattooImage.height);
-        this.tattoo.scale = maxDimension / imgMaxDimension;
-        this.tattoo.rotation = 0;
-        this.tattoo.opacity = 1;
-        this.render();
-    }
-
     clear() {
         this.bodyImage = null;
         this.tattooImage = null;
@@ -369,14 +419,23 @@ export class CanvasController {
     }
 
     render() {
+        // Clear entire canvas
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.restore();
 
-        // Draw body image
+        // 1. Apply View Transform
+        this.ctx.save();
+        this.ctx.translate(this.view.x, this.view.y);
+        this.ctx.scale(this.view.scale, this.view.scale);
+
+        // 2. Draw body image at (0,0) world coords
         if (this.bodyImage) {
             this.ctx.drawImage(this.bodyImage, 0, 0, this.canvas.width, this.canvas.height);
         }
 
-        // Draw tattoo
+        // 3. Draw tattoo at (tattoo.x, tattoo.y) world coords
         if (this.tattooImage) {
             const w = this.tattoo.originalWidth * this.tattoo.scale;
             const h = this.tattoo.originalHeight * this.tattoo.scale;
@@ -393,56 +452,31 @@ export class CanvasController {
                 this.drawSelectionHandles();
             }
         }
-    }
 
-    drawSelectionHandles() {
-        // Ensure we have current scale for drawing
-        const rect = this.canvas.getBoundingClientRect();
-        if (rect.width > 0) {
-            this.displayScale = this.canvas.width / rect.width;
-        }
-
-        const bounds = this.getTattooBounds();
-        if (!bounds) return;
-
-        const hs = this.getHandleSize();
-
-        this.ctx.save();
-
-        // Draw border
-        this.ctx.strokeStyle = '#3d4f5f';
-        this.ctx.lineWidth = 2 * this.displayScale; // Scale line width too
-        this.ctx.setLineDash([6 * this.displayScale, 4 * this.displayScale]);
-        this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        this.ctx.setLineDash([]);
-
-        // Draw corner handles
-        this.ctx.fillStyle = '#3d4f5f';
-
-        for (const corner of bounds.corners) {
-            this.ctx.beginPath();
-            this.ctx.arc(corner.x, corner.y, hs, 0, Math.PI * 2);
-            this.ctx.fill();
-
-            // White inner circle
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.beginPath();
-            this.ctx.arc(corner.x, corner.y, Math.max(1, hs - 2), 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.fillStyle = '#3d4f5f';
-        }
-
-        this.ctx.restore();
+        this.ctx.restore(); // Restore view transform
     }
 
     exportImage() {
-        // Temporarily hide selection handles for export
+        // Export should produce the original composition without the view pan
+        // (unless we want to support cropping, but usually users want full res)
+
+        // 1. Save current view
+        const currentView = { ...this.view };
         const wasSelected = this.isSelected;
+
+        // 2. Reset view to identity to capture full image
+        this.view = { x: 0, y: 0, scale: 1 };
         this.isSelected = false;
+
         this.render();
+
         const dataUrl = this.canvas.toDataURL('image/png');
+
+        // 3. Restore view
+        this.view = currentView;
         this.isSelected = wasSelected;
         this.render();
+
         return dataUrl;
     }
 
