@@ -40,7 +40,16 @@ export async function removeImageBackground(imageInput, onProgress = () => { }) 
     onProgress(5);
 
     // Try to initialize if not already
-    const libAvailable = await initBackgroundRemoval();
+    let libAvailable = false;
+    try {
+        // Race initialization too, just in case import hangs
+        libAvailable = await Promise.race([
+            initBackgroundRemoval(),
+            new Promise(resolve => setTimeout(() => resolve(false), 5000))
+        ]);
+    } catch (e) {
+        console.warn('Initialization failed or timed out:', e);
+    }
 
     if (libAvailable && removeBackgroundFn) {
         try {
@@ -58,22 +67,31 @@ export async function removeImageBackground(imageInput, onProgress = () => { }) 
                     format: 'image/png',
                     quality: 0.95
                 },
-                model: 'medium' // Prefer medium model for better quality balance if available
+                model: 'medium'
             };
 
-            const blob = await removeBackgroundFn(imageInput, config);
+            // Race the actual processing against a 20s timeout
+            // If it takes longer than 20s, it's likely stuck or too slow for UX
+            const blob = await Promise.race([
+                removeBackgroundFn(imageInput, config),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Background removal timed out')), 20000)
+                )
+            ]);
+
             onProgress(100);
             return blob;
 
         } catch (error) {
-            console.warn('AI background removal failed, falling back to canvas:', error);
+            console.warn('AI background removal failed/timed out, falling back to canvas:', error);
         }
     } else {
-        console.warn('AI library not available, using canvas fallback');
+        console.warn('AI library not available or timed out, using canvas fallback');
     }
 
     // Fallback: Simple Canvas-based removal (white/light background)
     // This is useful for tattoo sheets which often have white backgrounds
+    console.log('Falling back to simple white background removal');
     return removeWhiteBackground(imageInput, onProgress);
 }
 
@@ -86,16 +104,16 @@ function removeWhiteBackground(imageInput, onProgress) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        
+
         img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            
+
             ctx.drawImage(img, 0, 0);
             onProgress(70);
-            
+
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             const threshold = 200; // Threshold for white
@@ -108,7 +126,7 @@ function removeWhiteBackground(imageInput, onProgress) {
                 // Check if likely white/paper background
                 // We also check for near-neutral colors (grays) which are often paper shadows
                 const brightness = (r + g + b) / 3;
-                
+
                 if (brightness > threshold) {
                     // Simple transparency
                     data[i + 3] = 0;
@@ -119,10 +137,10 @@ function removeWhiteBackground(imageInput, onProgress) {
                     data[i + 3] = Math.min(data[i + 3], alpha);
                 }
             }
-            
+
             ctx.putImageData(imageData, 0, 0);
             onProgress(90);
-            
+
             canvas.toBlob((blob) => {
                 onProgress(100);
                 resolve(blob);
