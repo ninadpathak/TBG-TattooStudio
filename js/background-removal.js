@@ -35,12 +35,12 @@ async function initBackgroundRemoval() {
 export async function removeImageBackground(imageInput, onProgress = () => { }) {
     onProgress(5);
 
-    // Try to initialize if not already - 5s timeout
+    // Try to initialize if not already - 3s timeout
     let libAvailable = false;
     try {
         libAvailable = await Promise.race([
             initBackgroundRemoval(),
-            new Promise(resolve => setTimeout(() => resolve(false), 5000))
+            new Promise(resolve => setTimeout(() => resolve(false), 3000))
         ]);
     } catch (e) {
         console.warn('Initialization failed or timed out:', e);
@@ -83,7 +83,7 @@ export async function removeImageBackground(imageInput, onProgress = () => { }) 
             const blob = await Promise.race([
                 removeBackgroundFn(imageInput, config),
                 new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('AI processing timed out')), 15000)
+                    setTimeout(() => reject(new Error('AI processing timed out')), 8000)
                 )
             ]);
 

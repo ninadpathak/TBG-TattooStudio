@@ -35,6 +35,7 @@ class TattooTryOnApp {
             // Actions
             clearButton: document.getElementById('clearButton'),
             downloadButton: document.getElementById('downloadButton'),
+            resetControlsButton: document.getElementById('resetControlsButton'),
 
             // Step cards
             stepCard1: document.getElementById('stepCard1'),
@@ -257,6 +258,14 @@ class TattooTryOnApp {
             link.href = dataUrl;
             link.click();
         });
+
+        if (this.elements.resetControlsButton) {
+            this.elements.resetControlsButton.addEventListener('click', () => {
+                this.resetFloatingControls();
+                this.canvas.setOpacity(100);
+                this.canvas.setRotation(0);
+            });
+        }
     }
 
     updateDownloadButton() {
