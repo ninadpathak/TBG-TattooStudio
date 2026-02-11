@@ -30,6 +30,9 @@ export class CanvasController {
         this.dragStart = { x: 0, y: 0 };
         this.tattooStart = { x: 0, y: 0, scale: 1 };
 
+        // Display scale (internal pixels per screen pixel)
+        this.displayScale = 1;
+
         // Handle size (dynamic, calculated per render)
         this.handleSizeBase = 12;
         this.handleSizeMin = 4;
@@ -79,7 +82,7 @@ export class CanvasController {
         this.tattooImage = null;
         this.setSelected(false);
         this.render();
-        
+
         // Notify app to reset UI state
         if (this.onTattooRemoved) {
             this.onTattooRemoved();
@@ -88,10 +91,11 @@ export class CanvasController {
 
     getEventPosition(e) {
         const rect = this.canvas.getBoundingClientRect();
-        
+
         // Calculate scale factors between CSS display size and canvas internal resolution
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
+        this.displayScale = scaleX; // Store for handle calculation
 
         if (e.touches && e.touches.length > 0) {
             return {
@@ -128,14 +132,12 @@ export class CanvasController {
         };
     }
 
-    // Compute handle size proportional to tattoo
+    // Compute handle size to be constant screen size (e.g. 16px) converted to canvas pixels
     getHandleSize() {
         if (!this.tattooImage) return this.handleSizeBase;
-        const w = this.tattoo.originalWidth * this.tattoo.scale;
-        const h = this.tattoo.originalHeight * this.tattoo.scale;
-        const minDim = Math.min(w, h);
-        // Handle = 8% of smallest dimension, clamped
-        return Math.max(this.handleSizeMin, Math.min(this.handleSizeBase, minDim * 0.08));
+        // Target 16px on screen, scaled to canvas coordinates
+        // Ensure it's at least 10 units in canvas space to be visible
+        return Math.max(10, 16 * this.displayScale);
     }
 
     // Check if point is over a resize handle
@@ -290,12 +292,22 @@ export class CanvasController {
         this.canvas.width = img.width;
         this.canvas.height = img.height;
 
-        // Let CSS handle the display sizing
+        // Let CSS handle the display sizing - ensure aspect ratio is maintained
         this.canvas.style.width = '100%';
         this.canvas.style.height = 'auto';
         this.canvas.style.maxWidth = '100%';
-        this.canvas.style.maxHeight = '100%';
-        this.canvas.style.objectFit = 'contain';
+        this.canvas.style.maxHeight = 'none';
+        this.canvas.style.objectFit = 'fill';
+        this.canvas.style.touchAction = 'none'; // Prevent scrolling while dragging
+
+        // Update scale immediately for initial render
+        requestAnimationFrame(() => {
+            const rect = this.canvas.getBoundingClientRect();
+            if (rect.width > 0) {
+                this.displayScale = this.canvas.width / rect.width;
+                this.render();
+            }
+        });
 
         this.render();
     }
@@ -384,6 +396,12 @@ export class CanvasController {
     }
 
     drawSelectionHandles() {
+        // Ensure we have current scale for drawing
+        const rect = this.canvas.getBoundingClientRect();
+        if (rect.width > 0) {
+            this.displayScale = this.canvas.width / rect.width;
+        }
+
         const bounds = this.getTattooBounds();
         if (!bounds) return;
 
@@ -393,8 +411,8 @@ export class CanvasController {
 
         // Draw border
         this.ctx.strokeStyle = '#3d4f5f';
-        this.ctx.lineWidth = Math.max(1, hs * 0.25);
-        this.ctx.setLineDash([6, 4]);
+        this.ctx.lineWidth = 2 * this.displayScale; // Scale line width too
+        this.ctx.setLineDash([6 * this.displayScale, 4 * this.displayScale]);
         this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
         this.ctx.setLineDash([]);
 

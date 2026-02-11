@@ -50,12 +50,12 @@
     padding: 0;
 }
 
-html,
-body {
+html {
     height: 100%;
 }
 
 body {
+    min-height: 100%;
     font-family: var(--font);
     background: var(--surface);
     color: var(--on-surface);
@@ -258,9 +258,8 @@ button {
 .main-layout {
     display: flex;
     flex: 1;
+    /* Allow layout to grow */
     min-height: 0;
-    /* Important for flex children to respect overflow */
-    overflow: visible;
 }
 
 /* Sidebar - Percentage width */
@@ -273,7 +272,11 @@ button {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    height: 100%;
+    /* Sticky sidebar */
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 .sidebar-header {
@@ -623,7 +626,8 @@ button {
     align-items: flex-start;
     justify-content: center;
     padding: 3%;
-    overflow: auto;
+    /* Remove overflow: auto to allow page scroll */
+    overflow: visible;
     background-image: radial-gradient(var(--outline-variant) 1px, transparent 1px);
     background-size: 1.25rem 1.25rem;
     min-width: 0;
@@ -633,8 +637,8 @@ button {
     display: flex;
     flex-direction: column;
     align-items: center;
-    max-width: 95%;
-    max-height: 95%;
+    max-width: 100%;
+    /* Remove max-height constraint */
 }
 
 .canvas-wrapper {
