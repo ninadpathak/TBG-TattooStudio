@@ -4,6 +4,7 @@ import { removeImageBackground, loadImageFromFile } from './background-removal.j
 class TattooTryOnApp {
     constructor() {
         this.previewObjectUrl = null;
+        this.mobileStage = 'body';
         this.elements = this.collectElements();
         this.canvas = new CanvasController(this.elements.mainCanvas, this.elements.canvasWrapper);
 
@@ -15,8 +16,12 @@ class TattooTryOnApp {
             this.resetTattooSection();
             this.setStepState(this.elements.stepCard2, 'active');
             this.setStepState(this.elements.stepCard3, 'locked');
+            this.elements.tattooContinueButton.disabled = true;
             this.updateDownloadState();
             this.resetSliders();
+            if (this.isMobileViewport()) {
+                this.setMobileStage('tattoo');
+            }
         };
 
         this.init();
@@ -53,6 +58,10 @@ class TattooTryOnApp {
             stepCard1: document.getElementById('stepCard1'),
             stepCard2: document.getElementById('stepCard2'),
             stepCard3: document.getElementById('stepCard3'),
+            bodyContinueButton: document.getElementById('bodyContinueButton'),
+            tattooContinueButton: document.getElementById('tattooContinueButton'),
+            mobileDownloadButton: document.getElementById('mobileDownloadButton'),
+            mobileClearButton: document.getElementById('mobileClearButton'),
 
             themeToggle: document.getElementById('themeToggle')
         };
@@ -64,6 +73,8 @@ class TattooTryOnApp {
         this.bindUploadZone(this.elements.tattooUploadZone, this.elements.tattooImageInput, (file) => this.handleTattooUpload(file));
         this.bindActions();
         this.bindControls();
+        this.syncResponsiveMode();
+        window.addEventListener('resize', () => this.syncResponsiveMode());
     }
 
     bindUploadZone(zone, input, onFile) {
@@ -92,14 +103,19 @@ class TattooTryOnApp {
 
     bindActions() {
         this.elements.clearButton.addEventListener('click', () => this.resetAll());
+        this.elements.mobileClearButton.addEventListener('click', () => this.resetAll());
 
-        this.elements.downloadButton.addEventListener('click', () => {
+        this.elements.downloadButton.addEventListener('click', () => this.downloadResult());
+        this.elements.mobileDownloadButton.addEventListener('click', () => this.downloadResult());
+
+        this.elements.bodyContinueButton.addEventListener('click', () => {
             if (!this.canvas.hasContent()) return;
+            this.setMobileStage('tattoo');
+        });
 
-            const link = document.createElement('a');
-            link.download = 'tattoo-preview.png';
-            link.href = this.canvas.exportImage();
-            link.click();
+        this.elements.tattooContinueButton.addEventListener('click', () => {
+            if (!this.elements.tattooUploadZone.classList.contains('has-image')) return;
+            this.setMobileStage('editor');
         });
     }
 
@@ -153,6 +169,41 @@ class TattooTryOnApp {
         card.classList.add(state);
     }
 
+    isMobileViewport() {
+        return window.matchMedia('(max-width: 960px)').matches;
+    }
+
+    setMobileStage(stage) {
+        this.mobileStage = stage;
+        const classList = document.body.classList;
+        classList.remove('mobile-stage-body', 'mobile-stage-tattoo', 'mobile-stage-editor');
+        if (this.isMobileViewport()) {
+            classList.add(`mobile-stage-${stage}`);
+        }
+    }
+
+    syncResponsiveMode() {
+        if (!this.isMobileViewport()) {
+            document.body.classList.remove('mobile-stage-body', 'mobile-stage-tattoo', 'mobile-stage-editor');
+            return;
+        }
+
+        const hasBody = this.canvas.hasContent();
+        const hasTattoo = this.elements.tattooUploadZone.classList.contains('has-image');
+
+        if (!hasBody) {
+            this.setMobileStage('body');
+            return;
+        }
+
+        if (hasTattoo) {
+            this.setMobileStage(this.mobileStage === 'editor' ? 'editor' : 'tattoo');
+            return;
+        }
+
+        this.setMobileStage('body');
+    }
+
     setLoading(visible, text = 'Processing...') {
         this.elements.loadingText.textContent = text;
         this.elements.loadingOverlay.classList.toggle('visible', visible);
@@ -179,10 +230,22 @@ class TattooTryOnApp {
         this.elements.tattooUploadZone.classList.remove('has-image');
         this.elements.tattooPreview.src = '';
         this.elements.tattooImageInput.value = '';
+        this.elements.tattooContinueButton.disabled = true;
     }
 
     updateDownloadState() {
-        this.elements.downloadButton.disabled = !this.canvas.hasContent();
+        const disabled = !this.canvas.hasContent();
+        this.elements.downloadButton.disabled = disabled;
+        this.elements.mobileDownloadButton.disabled = disabled;
+    }
+
+    downloadResult() {
+        if (!this.canvas.hasContent()) return;
+
+        const link = document.createElement('a');
+        link.download = 'tattoo-preview.png';
+        link.href = this.canvas.exportImage();
+        link.click();
     }
 
     async handleBodyUpload(file) {
@@ -194,6 +257,7 @@ class TattooTryOnApp {
 
             this.canvas.setBodyImage(image);
             this.setCanvasReady(true);
+            this.elements.bodyContinueButton.disabled = false;
 
             this.setStepState(this.elements.stepCard1, 'completed');
             this.setStepState(this.elements.stepCard2, 'active');
@@ -203,6 +267,7 @@ class TattooTryOnApp {
             this.elements.floatingControls.classList.remove('visible');
             this.resetSliders();
             this.updateDownloadState();
+            this.setMobileStage('body');
         } catch (error) {
             console.error('Body upload failed:', error);
             alert('Unable to load this photo. Please try a different file.');
@@ -228,10 +293,14 @@ class TattooTryOnApp {
             this.elements.tattooPreview.src = this.previewObjectUrl;
             this.elements.tattooUploadZone.classList.add('has-image');
             this.canvas.setTattooImage(image);
+            this.elements.tattooContinueButton.disabled = false;
 
             this.setStepState(this.elements.stepCard2, 'completed');
             this.setStepState(this.elements.stepCard3, 'active');
             this.updateDownloadState();
+            if (!this.isMobileViewport()) {
+                this.setMobileStage('editor');
+            }
         } catch (error) {
             console.warn('Background removal failed, using original image:', error);
 
@@ -240,10 +309,14 @@ class TattooTryOnApp {
             this.elements.tattooPreview.src = image.src;
             this.elements.tattooUploadZone.classList.add('has-image');
             this.canvas.setTattooImage(image);
+            this.elements.tattooContinueButton.disabled = false;
 
             this.setStepState(this.elements.stepCard2, 'completed');
             this.setStepState(this.elements.stepCard3, 'active');
             this.updateDownloadState();
+            if (!this.isMobileViewport()) {
+                this.setMobileStage('editor');
+            }
         } finally {
             this.setLoading(false);
         }
@@ -259,6 +332,8 @@ class TattooTryOnApp {
         this.elements.bodyUploadZone.classList.remove('has-image');
         this.elements.bodyPreview.src = '';
         this.elements.bodyImageInput.value = '';
+        this.elements.bodyContinueButton.disabled = true;
+        this.elements.tattooContinueButton.disabled = true;
         this.resetTattooSection();
 
         this.setStepState(this.elements.stepCard1, 'active');
@@ -266,6 +341,7 @@ class TattooTryOnApp {
         this.setStepState(this.elements.stepCard3, 'locked');
 
         this.updateDownloadState();
+        this.setMobileStage('body');
     }
 }
 

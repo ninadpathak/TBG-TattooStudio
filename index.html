@@ -122,6 +122,9 @@
                             <span class="material-symbols-outlined">edit</span>
                         </div>
                     </div>
+                    <button class="btn btn-filled mobile-step-action" id="bodyContinueButton" disabled>
+                        Continue to Tattoo
+                    </button>
                 </div>
 
                 <!-- Step 2: Tattoo -->
@@ -151,6 +154,9 @@
                     <p class="privacy-note">
                         We do not save your images. They are sent to the server only for processing.
                     </p>
+                    <button class="btn btn-filled mobile-step-action" id="tattooContinueButton" disabled>
+                        Continue to Editor
+                    </button>
                 </div>
 
                 <!-- Step 3: Instructions -->
@@ -242,6 +248,16 @@
                     </div>
                     <button class="icon-btn-small" id="resetControlsButton" title="Reset">
                         <span class="material-symbols-outlined">restart_alt</span>
+                    </button>
+                </div>
+
+                <div class="mobile-action-bar" id="mobileActionBar">
+                    <button class="btn btn-filled" id="mobileDownloadButton" disabled>
+                        <span class="material-symbols-outlined">download</span>
+                        Download
+                    </button>
+                    <button class="btn btn-text" id="mobileClearButton">
+                        Start Over
                     </button>
                 </div>
             </div>
