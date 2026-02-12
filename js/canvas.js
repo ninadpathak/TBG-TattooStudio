@@ -379,22 +379,35 @@ export class CanvasController {
         }
 
         const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = this.canvas.width;
-        exportCanvas.height = this.canvas.height;
+        exportCanvas.width = this.body.width;
+        exportCanvas.height = this.body.height;
         const exportCtx = exportCanvas.getContext('2d');
 
-        this.drawLayer(exportCtx, this.bodyImage, this.body);
+        exportCtx.drawImage(this.bodyImage, 0, 0, this.body.width, this.body.height);
 
         if (this.tattooImage) {
+            const tattooForExport = this.getTattooTransformForImageSpace();
             this.drawLayer(exportCtx, this.tattooImage, this.tattoo, {
                 rotation: this.tattoo.rotation,
-                opacity: this.tattoo.opacity
+                opacity: this.tattoo.opacity,
+                overrideTransform: tattooForExport
             });
         }
 
         this.drawWatermark(exportCtx, exportCanvas.width, exportCanvas.height);
 
         return exportCanvas.toDataURL('image/png');
+    }
+
+    getTattooTransformForImageSpace() {
+        const safeBodyScale = this.body.scale > 0 ? this.body.scale : 1;
+        return {
+            x: ((this.tattoo.x - this.body.x) / safeBodyScale) + (this.body.width / 2),
+            y: ((this.tattoo.y - this.body.y) / safeBodyScale) + (this.body.height / 2),
+            width: this.tattoo.width,
+            height: this.tattoo.height,
+            scale: this.tattoo.scale / safeBodyScale
+        };
     }
 
     drawWatermark(ctx, canvasWidth, canvasHeight) {
@@ -418,11 +431,12 @@ export class CanvasController {
     drawLayer(ctx, image, transform, extra = null) {
         if (!image) return;
 
-        const width = transform.width * transform.scale;
-        const height = transform.height * transform.scale;
+        const finalTransform = extra && extra.overrideTransform ? extra.overrideTransform : transform;
+        const width = finalTransform.width * finalTransform.scale;
+        const height = finalTransform.height * finalTransform.scale;
 
         ctx.save();
-        ctx.translate(transform.x, transform.y);
+        ctx.translate(finalTransform.x, finalTransform.y);
 
         if (extra && typeof extra.rotation === 'number') {
             ctx.rotate(extra.rotation);
