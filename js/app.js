@@ -8,8 +8,14 @@ class TattooTryOnApp {
         this.elements = this.collectElements();
         this.canvas = new CanvasController(this.elements.mainCanvas, this.elements.canvasWrapper);
 
-        this.canvas.onSelectionChange = (selected) => {
-            this.elements.floatingControls.classList.toggle('visible', selected);
+        this.canvas.onSelectionChange = (layer) => {
+            this.elements.floatingControls.classList.toggle('visible', Boolean(layer));
+            this.updateControlAvailability(layer);
+        };
+
+        this.canvas.onCropStateChange = (active, layer) => {
+            this.updateCropButtons(active);
+            this.updateControlAvailability(layer ?? this.canvas.getSelectedLayer());
         };
 
         this.canvas.onTattooRemoved = () => {
@@ -51,6 +57,9 @@ class TattooTryOnApp {
             rotationSlider: document.getElementById('rotationSlider'),
             rotationValue: document.getElementById('rotationValue'),
             resetControlsButton: document.getElementById('resetControlsButton'),
+            cropToggleButton: document.getElementById('cropToggleButton'),
+            cropApplyButton: document.getElementById('cropApplyButton'),
+            cropCancelButton: document.getElementById('cropCancelButton'),
 
             clearButton: document.getElementById('clearButton'),
             downloadButton: document.getElementById('downloadButton'),
@@ -73,6 +82,8 @@ class TattooTryOnApp {
         this.bindUploadZone(this.elements.tattooUploadZone, this.elements.tattooImageInput, (file) => this.handleTattooUpload(file));
         this.bindActions();
         this.bindControls();
+        this.updateCropButtons(false);
+        this.updateControlAvailability(null);
         this.syncResponsiveMode();
         window.addEventListener('resize', () => this.syncResponsiveMode());
     }
@@ -136,6 +147,18 @@ class TattooTryOnApp {
             this.resetSliders();
             this.canvas.setOpacity(100);
             this.canvas.setRotation(0);
+        });
+
+        this.elements.cropToggleButton.addEventListener('click', () => {
+            this.canvas.beginCrop(this.canvas.getSelectedLayer());
+        });
+
+        this.elements.cropApplyButton.addEventListener('click', () => {
+            this.canvas.applyCrop();
+        });
+
+        this.elements.cropCancelButton.addEventListener('click', () => {
+            this.canvas.cancelCrop();
         });
     }
 
@@ -209,6 +232,23 @@ class TattooTryOnApp {
         this.elements.loadingOverlay.classList.toggle('visible', visible);
     }
 
+    updateControlAvailability(layer) {
+        const selectedLayer = layer ?? this.canvas.getSelectedLayer();
+        const isTattoo = selectedLayer === 'tattoo';
+        const isCropping = this.canvas.isCropping();
+
+        this.elements.opacitySlider.disabled = !isTattoo || isCropping;
+        this.elements.rotationSlider.disabled = !isTattoo || isCropping;
+        this.elements.resetControlsButton.disabled = !isTattoo || isCropping;
+        this.elements.cropToggleButton.disabled = !selectedLayer || isCropping;
+    }
+
+    updateCropButtons(active) {
+        this.elements.cropToggleButton.classList.toggle('is-hidden', active);
+        this.elements.cropApplyButton.classList.toggle('is-hidden', !active);
+        this.elements.cropCancelButton.classList.toggle('is-hidden', !active);
+    }
+
     setCanvasReady(ready) {
         this.elements.canvasPlaceholder.style.display = ready ? 'none' : 'flex';
         this.elements.mainCanvas.style.display = ready ? 'block' : 'none';
@@ -280,6 +320,8 @@ class TattooTryOnApp {
             this.resetTattooSection();
             this.elements.floatingControls.classList.remove('visible');
             this.resetSliders();
+            this.updateCropButtons(false);
+            this.updateControlAvailability(this.canvas.getSelectedLayer());
             this.updateDownloadState();
             this.setMobileStage('body');
         } catch (error) {
@@ -312,6 +354,7 @@ class TattooTryOnApp {
             this.setStepState(this.elements.stepCard2, 'completed');
             this.setStepState(this.elements.stepCard3, 'active');
             this.updateDownloadState();
+            this.updateControlAvailability(this.canvas.getSelectedLayer());
             if (!this.isMobileViewport()) {
                 this.setMobileStage('editor');
             }
@@ -328,6 +371,7 @@ class TattooTryOnApp {
             this.setStepState(this.elements.stepCard2, 'completed');
             this.setStepState(this.elements.stepCard3, 'active');
             this.updateDownloadState();
+            this.updateControlAvailability(this.canvas.getSelectedLayer());
             if (!this.isMobileViewport()) {
                 this.setMobileStage('editor');
             }
@@ -342,6 +386,7 @@ class TattooTryOnApp {
         this.setCanvasReady(false);
         this.resetSliders();
         this.elements.floatingControls.classList.remove('visible');
+        this.updateCropButtons(false);
 
         this.elements.bodyUploadZone.classList.remove('has-image');
         this.elements.bodyPreview.src = '';
@@ -355,6 +400,7 @@ class TattooTryOnApp {
         this.setStepState(this.elements.stepCard3, 'locked');
 
         this.updateDownloadState();
+        this.updateControlAvailability(this.canvas.getSelectedLayer());
         this.setMobileStage('body');
     }
 }

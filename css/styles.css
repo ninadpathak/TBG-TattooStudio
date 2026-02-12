@@ -673,6 +673,10 @@ input:focus-visible {
     transform: translateY(0);
 }
 
+.is-hidden {
+    display: none !important;
+}
+
 .mobile-step-action {
     display: none;
     margin-top: 0.58rem;
@@ -719,6 +723,17 @@ input:focus-visible {
     border: none;
     border-radius: 999px;
     background: var(--primary);
+}
+
+.mini-slider:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.icon-btn-small:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .ad-zone {
