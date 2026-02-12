@@ -83,7 +83,7 @@ TBG - TattooTryOn/
 - **Frontend**: Vanilla HTML/CSS/JavaScript
 - **AI**: Google Gemini 2.5 Flash Image API
 - **Backend**: Cloudflare Workers (optional)
-- **Background Removal**: Canvas-based + @imgly/background-removal fallback
+- **Background Removal**: `rembg-webgpu` (WebGPU/WASM) with `@imgly/background-removal` and canvas fallback
 
 ## License
 
