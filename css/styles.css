@@ -441,6 +441,13 @@ button {
     background: var(--surface-muted);
 }
 
+.privacy-note {
+    margin-top: 0.55rem;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: var(--text-muted);
+}
+
 .instructions-card {
     background: var(--surface-muted);
 }
