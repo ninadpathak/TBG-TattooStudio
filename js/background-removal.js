@@ -1,202 +1,154 @@
-// Background Removal Module
-// Primary engine: rembg-webgpu (WebGPU/WASM auto fallback)
-// Safety fallback: @imgly/background-removal
-// Last-resort fallback: luminance key extraction for stencil-like tattoo images
+// Background removal module
+// Primary: rembg-webgpu (WebGPU -> WASM fallback internally)
+// Fallback: luminance keying for tattoo-on-paper uploads
 
 const REMBG_CDN = 'https://cdn.jsdelivr.net/npm/rembg-webgpu@0.2.1/+esm';
-const IMGLY_CDN = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
 
-let rembgModule = null;
-let rembgInitPromise = null;
-let imglyRemoveBackground = null;
-let imglyInitPromise = null;
+let rembgPromise = null;
 
-async function initRembg() {
-    if (rembgModule) return rembgModule;
-    if (!rembgInitPromise) {
-        rembgInitPromise = import(REMBG_CDN)
-            .then((module) => {
-                rembgModule = module;
-                return module;
-            })
-            .catch((error) => {
-                rembgInitPromise = null;
-                throw error;
-            });
+function withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms))
+    ]);
+}
+
+function initRembg() {
+    if (!rembgPromise) {
+        rembgPromise = import(REMBG_CDN).catch((error) => {
+            rembgPromise = null;
+            throw error;
+        });
     }
-    return rembgInitPromise;
+    return rembgPromise;
 }
 
-async function initImgly() {
-    if (imglyRemoveBackground) return imglyRemoveBackground;
-    if (!imglyInitPromise) {
-        imglyInitPromise = import(IMGLY_CDN)
-            .then((module) => {
-                imglyRemoveBackground = module.removeBackground;
-                return imglyRemoveBackground;
-            })
-            .catch((error) => {
-                imglyInitPromise = null;
-                throw error;
-            });
-    }
-    return imglyInitPromise;
+function mapProgress(phase, progress) {
+    if (phase === 'downloading') return 8 + (progress * 0.55);
+    if (phase === 'building') return 72;
+    if (phase === 'ready') return 86;
+    return 8;
 }
 
-function clampProgress(value) {
-    return Math.max(0, Math.min(100, Math.round(value)));
-}
+async function cleanupAlpha(blob) {
+    const image = await loadImageFromFile(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
 
-function isLikelyTransparent(bitmap) {
-    const probe = document.createElement('canvas');
-    probe.width = 96;
-    probe.height = 96;
-    const ctx = probe.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(image, 0, 0);
 
-    ctx.drawImage(bitmap, 0, 0, probe.width, probe.height);
-    const alpha = ctx.getImageData(0, 0, probe.width, probe.height).data;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
 
-    let visible = 0;
-    for (let i = 3; i < alpha.length; i += 4) {
-        if (alpha[i] > 24) visible += 1;
+    for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+
+        // Drop faint background noise while preserving thin dark edges.
+        if (alpha < 16) {
+            data[i + 3] = 0;
+        } else if (alpha < 64) {
+            data[i + 3] = Math.min(255, Math.round((alpha - 10) * 1.5));
+        }
     }
 
-    // If almost everything is transparent, we likely stripped the tattoo itself.
-    return visible < 55;
-}
+    ctx.putImageData(imageData, 0, 0);
 
-function refineSmallEdges(blob) {
     return new Promise((resolve, reject) => {
-        loadImageFromFile(blob)
-            .then((img) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-                ctx.drawImage(img, 0, 0);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-
-                // Tight alpha cleanup so hairline tattoo details stay but paper haze is removed.
-                for (let i = 0; i < data.length; i += 4) {
-                    const a = data[i + 3];
-                    if (a < 18) {
-                        data[i + 3] = 0;
-                    } else if (a < 70) {
-                        data[i + 3] = Math.min(255, Math.round((a - 12) * 1.55));
-                    }
-                }
-
-                ctx.putImageData(imageData, 0, 0);
-                canvas.toBlob((resultBlob) => {
-                    if (!resultBlob) {
-                        reject(new Error('Failed to encode refined image'));
-                        return;
-                    }
-                    resolve(resultBlob);
-                }, 'image/png');
-            })
-            .catch((error) => reject(error));
+        canvas.toBlob((result) => {
+            if (!result) {
+                reject(new Error('Failed to encode cleaned PNG'));
+                return;
+            }
+            resolve(result);
+        }, 'image/png');
     });
+}
+
+function looksEmpty(bitmap) {
+    const sample = document.createElement('canvas');
+    sample.width = 96;
+    sample.height = 96;
+
+    const ctx = sample.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0, sample.width, sample.height);
+
+    const rgba = ctx.getImageData(0, 0, sample.width, sample.height).data;
+    let visibleCount = 0;
+
+    for (let i = 3; i < rgba.length; i += 4) {
+        if (rgba[i] > 24) visibleCount += 1;
+    }
+
+    return visibleCount < 60;
 }
 
 async function removeWithRembg(imageInput, onProgress) {
-    const module = await initRembg();
-    const { removeBackground, subscribeToProgress } = module;
+    const rembg = await withTimeout(initRembg(), 10000, 'Rembg init');
+    const { removeBackground, subscribeToProgress } = rembg;
 
-    let lastProgress = 10;
     const unsubscribe = subscribeToProgress(({ phase, progress }) => {
-        if (phase === 'downloading') {
-            lastProgress = clampProgress(10 + (progress * 0.5));
-        } else if (phase === 'building') {
-            lastProgress = Math.max(lastProgress, 72);
-        } else if (phase === 'ready') {
-            lastProgress = Math.max(lastProgress, 84);
-        }
-        onProgress(lastProgress);
+        onProgress(Math.round(mapProgress(phase, progress)));
     });
 
-    const objectUrl = URL.createObjectURL(imageInput);
+    const srcUrl = URL.createObjectURL(imageInput);
 
     try {
-        const result = await removeBackground(objectUrl);
+        const result = await withTimeout(removeBackground(srcUrl), 20000, 'Rembg processing');
         onProgress(92);
 
-        const outputBlob = await fetch(result.blobUrl).then((res) => res.blob());
+        const blob = await fetch(result.blobUrl).then((response) => response.blob());
+
         URL.revokeObjectURL(result.blobUrl);
         URL.revokeObjectURL(result.previewUrl);
 
-        const refined = await refineSmallEdges(outputBlob);
+        const cleaned = await cleanupAlpha(blob);
         onProgress(100);
-        return refined;
+        return cleaned;
     } finally {
         unsubscribe();
-        URL.revokeObjectURL(objectUrl);
+        URL.revokeObjectURL(srcUrl);
     }
 }
 
-async function removeWithImgly(imageInput, onProgress) {
-    const removeBackground = await initImgly();
+function removeByLuminance(imageInput, onProgress) {
+    onProgress(55);
 
-    const config = {
-        progress: (key, current, total) => {
-            const ratio = total > 0 ? current / total : 0;
-            const base = key && key.includes('fetch') ? 22 : 58;
-            const span = key && key.includes('fetch') ? 28 : 34;
-            onProgress(clampProgress(base + ratio * span));
-        },
-        output: {
-            format: 'image/png',
-            quality: 0.95
-        },
-        model: 'small'
-    };
+    return loadImageFromFile(imageInput).then((image) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
 
-    const resultBlob = await removeBackground(imageInput, config);
-    const refined = await refineSmallEdges(resultBlob);
-    onProgress(100);
-    return refined;
-}
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0);
 
-function removeSketchBackground(imageInput, onProgress) {
-    onProgress(60);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
 
-    return new Promise((resolve, reject) => {
-        loadImageFromFile(imageInput)
-            .then((img) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        for (let i = 0; i < data.length; i += 4) {
+            const luma = (0.299 * data[i]) + (0.587 * data[i + 1]) + (0.114 * data[i + 2]);
 
-                ctx.drawImage(img, 0, 0);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
+            let alpha = 255 - luma;
+            if (luma > 230) alpha = 0;
+            if (luma < 42) alpha = 255;
 
-                for (let i = 0; i < data.length; i += 4) {
-                    const luma = (0.299 * data[i]) + (0.587 * data[i + 1]) + (0.114 * data[i + 2]);
-                    let alpha = 255 - luma;
+            data[i + 3] = Math.max(0, Math.min(255, Math.round(alpha)));
+        }
 
-                    if (luma > 232) alpha = 0;
-                    if (luma < 40) alpha = 255;
+        ctx.putImageData(imageData, 0, 0);
+        onProgress(90);
 
-                    data[i + 3] = Math.max(0, Math.min(255, Math.round(alpha)));
+        return new Promise((resolve, reject) => {
+            canvas.toBlob((result) => {
+                if (!result) {
+                    reject(new Error('Fallback conversion failed'));
+                    return;
                 }
-
-                ctx.putImageData(imageData, 0, 0);
-                onProgress(92);
-
-                canvas.toBlob((blob) => {
-                    if (!blob) {
-                        reject(new Error('Fallback processing failed'));
-                        return;
-                    }
-                    onProgress(100);
-                    resolve(blob);
-                }, 'image/png');
-            })
-            .catch((error) => reject(error));
+                onProgress(100);
+                resolve(result);
+            }, 'image/png');
+        });
     });
 }
 
@@ -204,32 +156,17 @@ export async function removeImageBackground(imageInput, onProgress = () => { }) 
     onProgress(6);
 
     try {
-        const blob = await Promise.race([
-            removeWithRembg(imageInput, onProgress),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('rembg timeout')), 18000))
-        ]);
-
-        const bitmap = await createImageBitmap(blob);
-        const tooEmpty = isLikelyTransparent(bitmap);
+        const result = await removeWithRembg(imageInput, onProgress);
+        const bitmap = await createImageBitmap(result);
+        const empty = looksEmpty(bitmap);
         bitmap.close();
 
-        if (!tooEmpty) {
-            return blob;
-        }
+        if (!empty) return result;
     } catch (error) {
-        console.warn('rembg-webgpu failed, trying imgly fallback:', error);
+        console.warn('rembg-webgpu failed:', error);
     }
 
-    try {
-        return await Promise.race([
-            removeWithImgly(imageInput, onProgress),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('imgly timeout')), 10000))
-        ]);
-    } catch (error) {
-        console.warn('@imgly/background-removal failed, trying sketch fallback:', error);
-    }
-
-    return removeSketchBackground(imageInput, onProgress);
+    return removeByLuminance(imageInput, onProgress);
 }
 
 export function blobToDataURL(blob) {
