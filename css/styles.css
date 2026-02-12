@@ -11,8 +11,11 @@
 
     --primary: #1f3c5c;
     --primary-soft: #e6edf5;
+    --on-primary: #ffffff;
     --accent: #14532d;
+    --on-accent: #ffffff;
     --danger: #b42318;
+    --overlay: rgba(255, 255, 255, 0.82);
 
     --radius-lg: 16px;
     --radius-md: 12px;
@@ -34,8 +37,11 @@
 
     --primary: #7db0e1;
     --primary-soft: rgba(125, 176, 225, 0.16);
+    --on-primary: #0f1b2a;
     --accent: #80d4a3;
+    --on-accent: #0e2a19;
     --danger: #f97066;
+    --overlay: rgba(20, 24, 31, 0.82);
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
     --shadow-md: 0 14px 30px rgba(0, 0, 0, 0.38);
@@ -301,7 +307,7 @@ button {
 
 .step-card.completed .step-badge {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
 }
 
 .step-card.completed .step-number {
@@ -471,7 +477,7 @@ button {
 }
 
 .btn-filled {
-    color: #fff;
+    color: var(--on-primary);
     background: var(--primary);
     box-shadow: var(--shadow-sm);
 }
@@ -511,7 +517,7 @@ button {
     min-height: 440px;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
-    background: #fff;
+    background: var(--surface-muted);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -573,16 +579,12 @@ button {
 .loader-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(255, 255, 255, 0.82);
+    background: var(--overlay);
     display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.65rem;
-}
-
-[data-theme="dark"] .loader-overlay {
-    background: rgba(20, 24, 31, 0.82);
 }
 
 .loader-overlay.visible {
