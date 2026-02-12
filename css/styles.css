@@ -362,8 +362,13 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
     overflow: hidden;
     transition: border-color var(--ease), background var(--ease);
+}
+
+.upload-area * {
+    cursor: pointer;
 }
 
 .upload-area:hover,
@@ -510,11 +515,13 @@ button {
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
 }
 
 .canvas-wrapper {
-    width: min(100%, 900px);
-    min-height: 440px;
+    width: 100%;
+    height: calc(100vh - 170px);
+    min-height: 560px;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     background: var(--surface-muted);
@@ -526,14 +533,14 @@ button {
 }
 
 .canvas-wrapper:not(.has-image) {
-    aspect-ratio: 3 / 4;
-    max-width: 460px;
+    aspect-ratio: auto;
+    max-width: none;
 }
 
 #mainCanvas {
     display: block;
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
 }
 
 .empty-state {
@@ -765,7 +772,8 @@ button {
     }
 
     .canvas-wrapper {
-        min-height: 340px;
+        min-height: 420px;
+        height: calc(100vh - 250px);
     }
 
     .floating-controls {

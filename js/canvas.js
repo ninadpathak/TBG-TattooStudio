@@ -1,9 +1,5 @@
-// Canvas Controller - minimal interaction model
-// - Upload body photo
-// - Place one tattoo
-// - Drag tattoo
-// - Resize from corner handles
-// - Rotate / opacity controlled externally by sliders
+// Canvas Controller - layer-based interaction model
+// Supports moving/resizing both body photo and tattoo.
 
 export class CanvasController {
     constructor(canvasElement, containerElement) {
@@ -13,6 +9,14 @@ export class CanvasController {
 
         this.bodyImage = null;
         this.tattooImage = null;
+
+        this.body = {
+            x: 0,
+            y: 0,
+            scale: 1,
+            width: 0,
+            height: 0
+        };
 
         this.tattoo = {
             x: 0,
@@ -25,30 +29,79 @@ export class CanvasController {
         };
 
         this.state = {
-            selected: false,
+            selectedLayer: null, // 'body' | 'tattoo' | null
             dragging: false,
             resizing: false,
-            activeHandle: null,
             dragStart: { x: 0, y: 0 },
-            tattooStart: { x: 0, y: 0, scale: 1 }
+            layerStart: { x: 0, y: 0, scale: 1 }
         };
 
         this.onSelectionChange = null;
         this.onTattooRemoved = null;
 
+        this.initCanvasSize();
         this.attachEvents();
+    }
+
+    initCanvasSize() {
+        const rect = this.container.getBoundingClientRect();
+        const width = Math.max(900, Math.floor(rect.width || 900));
+        const height = Math.max(560, Math.floor(rect.height || window.innerHeight * 0.72));
+
+        this.canvas.width = width;
+        this.canvas.height = height;
+
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.maxWidth = '100%';
+        this.canvas.style.maxHeight = '100%';
+        this.canvas.style.touchAction = 'none';
+        this.canvas.style.cursor = 'default';
+    }
+
+    resizeCanvasToContainer() {
+        const oldWidth = this.canvas.width;
+        const oldHeight = this.canvas.height;
+
+        const rect = this.container.getBoundingClientRect();
+        const nextWidth = Math.max(900, Math.floor(rect.width || 900));
+        const nextHeight = Math.max(560, Math.floor(rect.height || window.innerHeight * 0.72));
+
+        if (nextWidth === oldWidth && nextHeight === oldHeight) return;
+
+        const sx = nextWidth / oldWidth;
+        const sy = nextHeight / oldHeight;
+        const scaleAdjust = Math.min(sx, sy);
+
+        this.canvas.width = nextWidth;
+        this.canvas.height = nextHeight;
+
+        if (this.bodyImage) {
+            this.body.x *= sx;
+            this.body.y *= sy;
+            this.body.scale *= scaleAdjust;
+        }
+
+        if (this.tattooImage) {
+            this.tattoo.x *= sx;
+            this.tattoo.y *= sy;
+            this.tattoo.scale *= scaleAdjust;
+        }
+
+        this.render();
     }
 
     attachEvents() {
         this.canvas.addEventListener('pointerdown', this.onPointerDown.bind(this));
         window.addEventListener('pointermove', this.onPointerMove.bind(this));
         window.addEventListener('pointerup', this.onPointerUp.bind(this));
+        window.addEventListener('resize', this.resizeCanvasToContainer.bind(this));
 
-        this.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        this.canvas.addEventListener('touchstart', (event) => event.preventDefault(), { passive: false });
+        this.canvas.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
 
         document.addEventListener('keydown', (event) => {
-            if (!this.tattooImage || !this.state.selected) return;
+            if (this.state.selectedLayer !== 'tattoo' || !this.tattooImage) return;
 
             if (event.key === 'Delete' || event.key === 'Backspace') {
                 event.preventDefault();
@@ -61,27 +114,42 @@ export class CanvasController {
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
+
         return {
             x: (event.clientX - rect.left) * scaleX,
             y: (event.clientY - rect.top) * scaleY
         };
     }
 
-    setSelected(selected) {
-        if (this.state.selected === selected) return;
-        this.state.selected = selected;
+    setSelectedLayer(layer) {
+        if (this.state.selectedLayer === layer) return;
+
+        this.state.selectedLayer = layer;
+
         if (this.onSelectionChange) {
-            this.onSelectionChange(selected);
+            this.onSelectionChange(layer === 'tattoo');
         }
+
+        this.render();
     }
 
-    getTattooBounds() {
-        if (!this.tattooImage) return null;
+    getLayerTransform(layerName) {
+        return layerName === 'body' ? this.body : this.tattoo;
+    }
 
-        const width = this.tattoo.width * this.tattoo.scale;
-        const height = this.tattoo.height * this.tattoo.scale;
-        const x = this.tattoo.x - (width / 2);
-        const y = this.tattoo.y - (height / 2);
+    hasLayer(layerName) {
+        return layerName === 'body' ? Boolean(this.bodyImage) : Boolean(this.tattooImage);
+    }
+
+    getLayerBounds(layerName) {
+        if (!this.hasLayer(layerName)) return null;
+
+        const t = this.getLayerTransform(layerName);
+        const width = t.width * t.scale;
+        const height = t.height * t.scale;
+
+        const x = t.x - (width / 2);
+        const y = t.y - (height / 2);
 
         return {
             x,
@@ -97,8 +165,8 @@ export class CanvasController {
         };
     }
 
-    isInsideTattoo(x, y) {
-        const bounds = this.getTattooBounds();
+    isInsideLayer(layerName, x, y) {
+        const bounds = this.getLayerBounds(layerName);
         if (!bounds) return false;
 
         return (
@@ -109,13 +177,13 @@ export class CanvasController {
         );
     }
 
-    getHandleAt(x, y) {
-        if (!this.state.selected) return null;
+    getHandleAt(layerName, x, y) {
+        if (this.state.selectedLayer !== layerName) return null;
 
-        const bounds = this.getTattooBounds();
+        const bounds = this.getLayerBounds(layerName);
         if (!bounds) return null;
 
-        const size = Math.max(12, 14 * (this.canvas.width / this.canvas.getBoundingClientRect().width));
+        const size = 12;
 
         for (const corner of bounds.corners) {
             if (
@@ -136,136 +204,135 @@ export class CanvasController {
 
         const point = this.toCanvasPoint(event);
 
-        if (this.tattooImage) {
-            const handle = this.getHandleAt(point.x, point.y);
-            if (handle) {
+        if (this.state.selectedLayer) {
+            const selectedHandle = this.getHandleAt(this.state.selectedLayer, point.x, point.y);
+            if (selectedHandle) {
                 this.state.resizing = true;
-                this.state.activeHandle = handle;
                 this.state.dragStart = point;
-                this.state.tattooStart = {
-                    x: this.tattoo.x,
-                    y: this.tattoo.y,
-                    scale: this.tattoo.scale
-                };
+                const t = this.getLayerTransform(this.state.selectedLayer);
+                this.state.layerStart = { x: t.x, y: t.y, scale: t.scale };
                 this.canvas.style.cursor = 'nwse-resize';
-                this.canvas.setPointerCapture(event.pointerId);
-                return;
-            }
-
-            if (this.isInsideTattoo(point.x, point.y)) {
-                this.setSelected(true);
-                this.state.dragging = true;
-                this.state.dragStart = point;
-                this.state.tattooStart = {
-                    x: this.tattoo.x,
-                    y: this.tattoo.y,
-                    scale: this.tattoo.scale
-                };
-                this.canvas.style.cursor = 'grabbing';
                 this.canvas.setPointerCapture(event.pointerId);
                 return;
             }
         }
 
-        this.setSelected(false);
+        if (this.tattooImage && this.isInsideLayer('tattoo', point.x, point.y)) {
+            this.setSelectedLayer('tattoo');
+            this.state.dragging = true;
+            this.state.dragStart = point;
+            this.state.layerStart = { x: this.tattoo.x, y: this.tattoo.y, scale: this.tattoo.scale };
+            this.canvas.style.cursor = 'grabbing';
+            this.canvas.setPointerCapture(event.pointerId);
+            return;
+        }
+
+        if (this.bodyImage && this.isInsideLayer('body', point.x, point.y)) {
+            this.setSelectedLayer('body');
+            this.state.dragging = true;
+            this.state.dragStart = point;
+            this.state.layerStart = { x: this.body.x, y: this.body.y, scale: this.body.scale };
+            this.canvas.style.cursor = 'grabbing';
+            this.canvas.setPointerCapture(event.pointerId);
+            return;
+        }
+
+        this.setSelectedLayer(null);
         this.canvas.style.cursor = 'default';
-        this.render();
     }
 
     onPointerMove(event) {
         if (!this.bodyImage) return;
 
         const point = this.toCanvasPoint(event);
+        const layer = this.state.selectedLayer;
 
-        if (this.state.dragging) {
-            this.tattoo.x = this.state.tattooStart.x + (point.x - this.state.dragStart.x);
-            this.tattoo.y = this.state.tattooStart.y + (point.y - this.state.dragStart.y);
+        if (this.state.dragging && layer) {
+            const t = this.getLayerTransform(layer);
+            t.x = this.state.layerStart.x + (point.x - this.state.dragStart.x);
+            t.y = this.state.layerStart.y + (point.y - this.state.dragStart.y);
             this.render();
             return;
         }
 
-        if (this.state.resizing) {
-            const centerX = this.tattoo.x;
-            const centerY = this.tattoo.y;
-
+        if (this.state.resizing && layer) {
+            const t = this.getLayerTransform(layer);
             const startDistance = Math.hypot(
-                this.state.dragStart.x - centerX,
-                this.state.dragStart.y - centerY
+                this.state.dragStart.x - t.x,
+                this.state.dragStart.y - t.y
             );
-
-            const currentDistance = Math.hypot(point.x - centerX, point.y - centerY);
+            const currentDistance = Math.hypot(point.x - t.x, point.y - t.y);
 
             if (startDistance > 0) {
-                const nextScale = this.state.tattooStart.scale * (currentDistance / startDistance);
-                this.tattoo.scale = Math.min(5, Math.max(0.08, nextScale));
+                const nextScale = this.state.layerStart.scale * (currentDistance / startDistance);
+                t.scale = Math.min(8, Math.max(0.05, nextScale));
                 this.render();
             }
             return;
         }
 
-        if (!this.tattooImage) {
-            this.canvas.style.cursor = 'default';
+        if (layer && this.getHandleAt(layer, point.x, point.y)) {
+            this.canvas.style.cursor = 'nwse-resize';
             return;
         }
 
-        const handle = this.getHandleAt(point.x, point.y);
-        if (handle) {
-            this.canvas.style.cursor = 'nwse-resize';
-        } else if (this.isInsideTattoo(point.x, point.y)) {
+        if (this.tattooImage && this.isInsideLayer('tattoo', point.x, point.y)) {
             this.canvas.style.cursor = 'grab';
-        } else {
-            this.canvas.style.cursor = 'default';
+            return;
         }
+
+        if (this.bodyImage && this.isInsideLayer('body', point.x, point.y)) {
+            this.canvas.style.cursor = 'grab';
+            return;
+        }
+
+        this.canvas.style.cursor = 'default';
     }
 
     onPointerUp() {
         this.state.dragging = false;
         this.state.resizing = false;
-        this.state.activeHandle = null;
 
-        if (!this.tattooImage) {
+        if (!this.state.selectedLayer) {
             this.canvas.style.cursor = 'default';
-        } else if (this.state.selected) {
-            this.canvas.style.cursor = 'grab';
         } else {
-            this.canvas.style.cursor = 'default';
+            this.canvas.style.cursor = 'grab';
         }
     }
 
-    setBodyImage(img) {
-        this.bodyImage = img;
+    setBodyImage(image) {
+        this.bodyImage = image;
         this.tattooImage = null;
-        this.setSelected(false);
 
-        this.canvas.width = img.width;
-        this.canvas.height = img.height;
+        this.resizeCanvasToContainer();
 
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = 'auto';
-        this.canvas.style.maxWidth = '100%';
-        this.canvas.style.maxHeight = '80vh';
-        this.canvas.style.touchAction = 'none';
+        this.body.width = image.width;
+        this.body.height = image.height;
+        this.body.scale = Math.min(
+            (this.canvas.width * 0.82) / image.width,
+            (this.canvas.height * 0.82) / image.height
+        );
+        this.body.x = this.canvas.width / 2;
+        this.body.y = this.canvas.height / 2;
 
-        this.render();
+        this.setSelectedLayer('body');
     }
 
-    setTattooImage(img) {
+    setTattooImage(image) {
         if (!this.bodyImage) return;
 
-        this.tattooImage = img;
+        this.tattooImage = image;
+        this.tattoo.width = image.width;
+        this.tattoo.height = image.height;
 
-        const baseWidth = this.canvas.width * 0.34;
-        this.tattoo.width = img.width;
-        this.tattoo.height = img.height;
-        this.tattoo.scale = baseWidth / img.width;
+        const bodyDisplayWidth = this.body.width * this.body.scale;
+        this.tattoo.scale = Math.max(0.08, (bodyDisplayWidth * 0.28) / image.width);
         this.tattoo.rotation = 0;
         this.tattoo.opacity = 1;
-        this.tattoo.x = this.canvas.width / 2;
-        this.tattoo.y = this.canvas.height / 2;
+        this.tattoo.x = this.body.x;
+        this.tattoo.y = this.body.y;
 
-        this.setSelected(true);
-        this.canvas.style.cursor = 'grab';
-        this.render();
+        this.setSelectedLayer('tattoo');
     }
 
     setOpacity(value) {
@@ -280,9 +347,11 @@ export class CanvasController {
 
     removeTattoo() {
         this.tattooImage = null;
-        this.setSelected(false);
-        this.canvas.style.cursor = 'default';
-        this.render();
+        if (this.state.selectedLayer === 'tattoo') {
+            this.setSelectedLayer('body');
+        } else {
+            this.render();
+        }
 
         if (this.onTattooRemoved) {
             this.onTattooRemoved();
@@ -292,11 +361,8 @@ export class CanvasController {
     clear() {
         this.bodyImage = null;
         this.tattooImage = null;
-        this.setSelected(false);
-
-        this.canvas.width = 1;
-        this.canvas.height = 1;
-        this.ctx.clearRect(0, 0, 1, 1);
+        this.setSelectedLayer(null);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.canvas.style.cursor = 'default';
     }
 
@@ -308,23 +374,43 @@ export class CanvasController {
         return this.canvas.toDataURL('image/png');
     }
 
-    drawSelection() {
-        const bounds = this.getTattooBounds();
+    drawLayer(layerName, image, transform, extra = null) {
+        if (!image) return;
+
+        const width = transform.width * transform.scale;
+        const height = transform.height * transform.scale;
+
+        this.ctx.save();
+        this.ctx.translate(transform.x, transform.y);
+
+        if (extra && typeof extra.rotation === 'number') {
+            this.ctx.rotate(extra.rotation);
+        }
+
+        if (extra && typeof extra.opacity === 'number') {
+            this.ctx.globalAlpha = extra.opacity;
+        }
+
+        this.ctx.drawImage(image, -width / 2, -height / 2, width, height);
+        this.ctx.restore();
+    }
+
+    drawSelection(layerName) {
+        const bounds = this.getLayerBounds(layerName);
         if (!bounds) return;
 
         this.ctx.save();
-        this.ctx.strokeStyle = '#1f2937';
-        this.ctx.setLineDash([8, 6]);
+        this.ctx.setLineDash([7, 5]);
         this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = layerName === 'tattoo' ? '#0f62a5' : '#1f8f5f';
         this.ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-
         this.ctx.setLineDash([]);
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.strokeStyle = '#111827';
 
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.strokeStyle = '#1f2937';
         for (const corner of bounds.corners) {
             this.ctx.beginPath();
-            this.ctx.rect(corner.x - 6, corner.y - 6, 12, 12);
+            this.ctx.rect(corner.x - 5.5, corner.y - 5.5, 11, 11);
             this.ctx.fill();
             this.ctx.stroke();
         }
@@ -333,35 +419,21 @@ export class CanvasController {
     }
 
     render() {
-        const { width, height } = this.canvas;
-        this.ctx.clearRect(0, 0, width, height);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (!this.bodyImage) return;
 
-        this.ctx.drawImage(this.bodyImage, 0, 0, width, height);
+        this.drawLayer('body', this.bodyImage, this.body);
 
-        if (!this.tattooImage) return;
+        if (this.tattooImage) {
+            this.drawLayer('tattoo', this.tattooImage, this.tattoo, {
+                rotation: this.tattoo.rotation,
+                opacity: this.tattoo.opacity
+            });
+        }
 
-        const tattooWidth = this.tattoo.width * this.tattoo.scale;
-        const tattooHeight = this.tattoo.height * this.tattoo.scale;
-
-        this.ctx.save();
-        this.ctx.translate(this.tattoo.x, this.tattoo.y);
-        this.ctx.rotate(this.tattoo.rotation);
-        this.ctx.globalAlpha = this.tattoo.opacity;
-
-        this.ctx.drawImage(
-            this.tattooImage,
-            -tattooWidth / 2,
-            -tattooHeight / 2,
-            tattooWidth,
-            tattooHeight
-        );
-
-        this.ctx.restore();
-
-        if (this.state.selected) {
-            this.drawSelection();
+        if (this.state.selectedLayer) {
+            this.drawSelection(this.state.selectedLayer);
         }
     }
 }

@@ -5,7 +5,7 @@ class TattooTryOnApp {
     constructor() {
         this.previewObjectUrl = null;
         this.elements = this.collectElements();
-        this.canvas = new CanvasController(this.elements.mainCanvas, this.elements.canvasContainer);
+        this.canvas = new CanvasController(this.elements.mainCanvas, this.elements.canvasWrapper);
 
         this.canvas.onSelectionChange = (selected) => {
             this.elements.floatingControls.classList.toggle('visible', selected);
