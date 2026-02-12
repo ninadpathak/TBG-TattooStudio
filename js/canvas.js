@@ -371,28 +371,46 @@ export class CanvasController {
     }
 
     exportImage() {
-        return this.canvas.toDataURL('image/png');
+        if (!this.bodyImage) {
+            return this.canvas.toDataURL('image/png');
+        }
+
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = this.canvas.width;
+        exportCanvas.height = this.canvas.height;
+        const exportCtx = exportCanvas.getContext('2d');
+
+        this.drawLayer(exportCtx, this.bodyImage, this.body);
+
+        if (this.tattooImage) {
+            this.drawLayer(exportCtx, this.tattooImage, this.tattoo, {
+                rotation: this.tattoo.rotation,
+                opacity: this.tattoo.opacity
+            });
+        }
+
+        return exportCanvas.toDataURL('image/png');
     }
 
-    drawLayer(layerName, image, transform, extra = null) {
+    drawLayer(ctx, image, transform, extra = null) {
         if (!image) return;
 
         const width = transform.width * transform.scale;
         const height = transform.height * transform.scale;
 
-        this.ctx.save();
-        this.ctx.translate(transform.x, transform.y);
+        ctx.save();
+        ctx.translate(transform.x, transform.y);
 
         if (extra && typeof extra.rotation === 'number') {
-            this.ctx.rotate(extra.rotation);
+            ctx.rotate(extra.rotation);
         }
 
         if (extra && typeof extra.opacity === 'number') {
-            this.ctx.globalAlpha = extra.opacity;
+            ctx.globalAlpha = extra.opacity;
         }
 
-        this.ctx.drawImage(image, -width / 2, -height / 2, width, height);
-        this.ctx.restore();
+        ctx.drawImage(image, -width / 2, -height / 2, width, height);
+        ctx.restore();
     }
 
     drawSelection(layerName) {
@@ -423,10 +441,10 @@ export class CanvasController {
 
         if (!this.bodyImage) return;
 
-        this.drawLayer('body', this.bodyImage, this.body);
+        this.drawLayer(this.ctx, this.bodyImage, this.body);
 
         if (this.tattooImage) {
-            this.drawLayer('tattoo', this.tattooImage, this.tattoo, {
+            this.drawLayer(this.ctx, this.tattooImage, this.tattoo, {
                 rotation: this.tattoo.rotation,
                 opacity: this.tattoo.opacity
             });
