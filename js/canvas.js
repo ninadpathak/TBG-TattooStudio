@@ -51,8 +51,8 @@ export class CanvasController {
         this.canvas.width = width;
         this.canvas.height = height;
 
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
+        this.canvas.style.width = 'auto';
+        this.canvas.style.height = 'auto';
         this.canvas.style.maxWidth = '100%';
         this.canvas.style.maxHeight = '100%';
         this.canvas.style.touchAction = 'none';
