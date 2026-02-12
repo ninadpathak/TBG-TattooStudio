@@ -542,6 +542,8 @@ button {
 .canvas-wrapper:not(.has-image) {
     aspect-ratio: auto;
     max-width: none;
+    border: none;
+    background: transparent;
 }
 
 #mainCanvas {
