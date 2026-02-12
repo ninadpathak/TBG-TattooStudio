@@ -240,13 +240,26 @@ class TattooTryOnApp {
         this.elements.mobileDownloadButton.disabled = disabled;
     }
 
-    downloadResult() {
+    waitForNextPaint() {
+        return new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+    }
+
+    async downloadResult() {
         if (!this.canvas.hasContent()) return;
 
-        const link = document.createElement('a');
-        link.download = 'tattoo-preview.png';
-        link.href = this.canvas.exportImage();
-        link.click();
+        this.setLoading(true, 'Processing image...');
+
+        try {
+            await this.waitForNextPaint();
+            const link = document.createElement('a');
+            link.download = 'tattoo-preview.png';
+            link.href = this.canvas.exportImage();
+            link.click();
+        } finally {
+            this.setLoading(false);
+        }
     }
 
     async handleBodyUpload(file) {

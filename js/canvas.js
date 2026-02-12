@@ -45,6 +45,9 @@ export class CanvasController {
         this.toneSampleCanvas.width = 32;
         this.toneSampleCanvas.height = 32;
         this.toneSampleCtx = this.toneSampleCanvas.getContext('2d', { willReadFrequently: true });
+        this.integrationCanvas = document.createElement('canvas');
+        this.integrationCtx = this.integrationCanvas.getContext('2d', { willReadFrequently: true });
+        this.integrationCache = { key: '', map: null, lightX: -0.2, lightY: -0.8, luminance: 0.56 };
 
         this.initCanvasSize();
         this.attachEvents();
@@ -492,6 +495,126 @@ export class CanvasController {
         return { brightness, contrast, saturation };
     }
 
+    getBodySamplingRect(transform, bodyRef) {
+        const width = transform.width * transform.scale;
+        const height = transform.height * transform.scale;
+        const safeScale = bodyRef && bodyRef.scale > 0 ? bodyRef.scale : 1;
+
+        const centerX = ((transform.x - bodyRef.x) / safeScale) + (bodyRef.width / 2);
+        const centerY = ((transform.y - bodyRef.y) / safeScale) + (bodyRef.height / 2);
+        const sampleWidth = Math.max(1, width / safeScale);
+        const sampleHeight = Math.max(1, height / safeScale);
+
+        const rawX = centerX - (sampleWidth / 2);
+        const rawY = centerY - (sampleHeight / 2);
+
+        const sx = this.clamp(rawX, 0, Math.max(0, this.bodyImage.width - 1));
+        const sy = this.clamp(rawY, 0, Math.max(0, this.bodyImage.height - 1));
+        const sw = this.clamp(sampleWidth, 1, this.bodyImage.width - sx);
+        const sh = this.clamp(sampleHeight, 1, this.bodyImage.height - sy);
+
+        return { sx, sy, sw, sh, width, height };
+    }
+
+    getIntegrationMap(transform, bodyRef) {
+        if (!this.bodyImage || !this.integrationCtx || !bodyRef || bodyRef.scale <= 0) {
+            return this.integrationCache;
+        }
+
+        const bodyRect = this.getBodySamplingRect(transform, bodyRef);
+        const mapWidth = this.clamp(Math.round(bodyRect.width / 6), 44, 112);
+        const mapHeight = this.clamp(Math.round(bodyRect.height / 6), 44, 112);
+        const key = [
+            Math.round(bodyRect.sx / 6),
+            Math.round(bodyRect.sy / 6),
+            Math.round(bodyRect.sw / 6),
+            Math.round(bodyRect.sh / 6),
+            mapWidth,
+            mapHeight
+        ].join(':');
+
+        if (this.integrationCache.key === key && this.integrationCache.map) {
+            return this.integrationCache;
+        }
+
+        this.integrationCanvas.width = mapWidth;
+        this.integrationCanvas.height = mapHeight;
+        this.integrationCtx.clearRect(0, 0, mapWidth, mapHeight);
+        this.integrationCtx.drawImage(
+            this.bodyImage,
+            bodyRect.sx,
+            bodyRect.sy,
+            bodyRect.sw,
+            bodyRect.sh,
+            0,
+            0,
+            mapWidth,
+            mapHeight
+        );
+
+        const source = this.integrationCtx.getImageData(0, 0, mapWidth, mapHeight);
+        const pixelCount = mapWidth * mapHeight;
+        const luma = new Float32Array(pixelCount);
+        const output = this.integrationCtx.createImageData(mapWidth, mapHeight);
+
+        let left = 0;
+        let right = 0;
+        let top = 0;
+        let bottom = 0;
+        let avgLum = 0;
+
+        for (let y = 0; y < mapHeight; y += 1) {
+            for (let x = 0; x < mapWidth; x += 1) {
+                const idx = (y * mapWidth) + x;
+                const i4 = idx * 4;
+                const r = source.data[i4] / 255;
+                const g = source.data[i4 + 1] / 255;
+                const b = source.data[i4 + 2] / 255;
+                const lum = (r * 0.299) + (g * 0.587) + (b * 0.114);
+                luma[idx] = lum;
+                avgLum += lum;
+
+                if (x < mapWidth / 2) left += lum; else right += lum;
+                if (y < mapHeight / 2) top += lum; else bottom += lum;
+            }
+        }
+
+        avgLum /= pixelCount;
+        const lightXRaw = right - left;
+        const lightYRaw = bottom - top;
+        const mag = Math.hypot(lightXRaw, lightYRaw) || 1;
+        const lightX = lightXRaw / mag;
+        const lightY = lightYRaw / mag;
+
+        for (let y = 1; y < mapHeight - 1; y += 1) {
+            for (let x = 1; x < mapWidth - 1; x += 1) {
+                const idx = (y * mapWidth) + x;
+                const i4 = idx * 4;
+                const dx = luma[idx + 1] - luma[idx - 1];
+                const dy = luma[idx + mapWidth] - luma[idx - mapWidth];
+                const edge = this.clamp((Math.abs(dx) + Math.abs(dy)) * 2.4, 0, 1);
+                const shadow = this.clamp((0.44 - luma[idx]) * 1.25, 0, 0.65);
+                const alpha = Math.round(this.clamp((edge * 0.8) + (shadow * 0.45), 0, 1) * 255);
+                output.data[i4] = 0;
+                output.data[i4 + 1] = 0;
+                output.data[i4 + 2] = 0;
+                output.data[i4 + 3] = alpha;
+            }
+        }
+
+        this.integrationCtx.putImageData(output, 0, 0);
+
+        this.integrationCache = {
+            key,
+            map: this.integrationCanvas,
+            lightX,
+            lightY,
+            luminance: avgLum
+        };
+
+        return this.integrationCache;
+    }
+
     drawTattooLayer(ctx, image, transform, extra = null) {
         if (!image) return;
 
@@ -501,6 +624,7 @@ export class CanvasController {
         const opacity = extra && typeof extra.opacity === 'number' ? extra.opacity : 1;
         const bodyRef = extra && extra.bodyRef ? extra.bodyRef : this.body;
         const filters = this.getTattooToneFilters(transform, bodyRef);
+        const integration = this.getIntegrationMap(transform, bodyRef);
 
         ctx.save();
         ctx.translate(transform.x, transform.y);
@@ -529,6 +653,36 @@ export class CanvasController {
         ctx.filter = `contrast(${(filters.contrast * 0.97).toFixed(3)}) brightness(${Math.min(1.2, filters.brightness + 0.06).toFixed(3)}) saturate(${(filters.saturation * 0.92).toFixed(3)})`;
         ctx.drawImage(image, -width / 2, -height / 2, width, height);
         ctx.restore();
+
+        if (integration && integration.map) {
+            const lx = integration.lightX || -0.2;
+            const ly = integration.lightY || -0.8;
+
+            // Lighting pass: directional light modulation from underlying skin.
+            ctx.save();
+            ctx.globalCompositeOperation = 'soft-light';
+            ctx.globalAlpha = opacity * 0.28;
+            const gradient = ctx.createLinearGradient(
+                (-width / 2) - (lx * width * 0.35),
+                (-height / 2) - (ly * height * 0.35),
+                (width / 2) + (lx * width * 0.35),
+                (height / 2) + (ly * height * 0.35)
+            );
+            gradient.addColorStop(0, 'rgba(15, 23, 42, 0.44)');
+            gradient.addColorStop(0.55, 'rgba(15, 23, 42, 0)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0.36)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-width / 2, -height / 2, width, height);
+            ctx.restore();
+
+            // Occlusion pass: darken where body edges/folds are present.
+            ctx.save();
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.globalAlpha = opacity * 0.22;
+            ctx.filter = 'blur(0.7px)';
+            ctx.drawImage(integration.map, -width / 2, -height / 2, width, height);
+            ctx.restore();
+        }
 
         ctx.restore();
     }
