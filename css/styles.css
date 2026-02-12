@@ -517,6 +517,14 @@ button {
     gap: 1rem;
 }
 
+.canvas-area:not(.has-image) {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.canvas-area:not(.has-image) .ad-canvas-right {
+    display: none;
+}
+
 .canvas-column {
     min-width: 0;
     display: flex;

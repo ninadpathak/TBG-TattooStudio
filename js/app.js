@@ -213,6 +213,7 @@ class TattooTryOnApp {
         this.elements.canvasPlaceholder.style.display = ready ? 'none' : 'flex';
         this.elements.mainCanvas.style.display = ready ? 'block' : 'none';
         this.elements.canvasWrapper.classList.toggle('has-image', ready);
+        this.elements.canvasContainer.classList.toggle('has-image', ready);
     }
 
     resetSliders() {
