@@ -39,6 +39,9 @@ export class CanvasController {
         this.onSelectionChange = null;
         this.onTattooRemoved = null;
 
+        this.logoImage = new Image();
+        this.logoImage.src = 'assets/images/logo.png';
+
         this.initCanvasSize();
         this.attachEvents();
     }
@@ -389,7 +392,27 @@ export class CanvasController {
             });
         }
 
+        this.drawWatermark(exportCtx, exportCanvas.width, exportCanvas.height);
+
         return exportCanvas.toDataURL('image/png');
+    }
+
+    drawWatermark(ctx, canvasWidth, canvasHeight) {
+        if (!this.logoImage || !this.logoImage.complete || this.logoImage.naturalWidth === 0) return;
+
+        const maxLogoWidth = Math.min(150, canvasWidth * 0.16);
+        const minLogoWidth = 72;
+        const logoWidth = Math.max(minLogoWidth, maxLogoWidth);
+        const logoHeight = logoWidth * (this.logoImage.naturalHeight / this.logoImage.naturalWidth);
+
+        const padding = Math.max(14, Math.round(canvasWidth * 0.018));
+        const x = canvasWidth - logoWidth - padding;
+        const y = canvasHeight - logoHeight - padding;
+
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(this.logoImage, x, y, logoWidth, logoHeight);
+        ctx.restore();
     }
 
     drawLayer(ctx, image, transform, extra = null) {
