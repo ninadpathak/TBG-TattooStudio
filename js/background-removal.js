@@ -1,9 +1,12 @@
 // Background removal module
 // Stability-first pipeline:
-// 1) @imgly/background-removal (primary)
-// 2) rembg-webgpu fallback
-// 3) simple luminance fallback
+// 1) Replicate via backend worker (primary when configured)
+// 2) @imgly/background-removal (local fallback)
+// 3) rembg-webgpu fallback
+// 4) simple luminance fallback
 // Post-processing is intentionally conservative to preserve tattoo details.
+
+import { getAPIEndpoint } from './config.js';
 
 const IMGLY_CDN = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
 const REMBG_CDN = 'https://cdn.jsdelivr.net/npm/rembg-webgpu@0.2.1/+esm';
@@ -143,6 +146,41 @@ async function removeWithImgly(file, onProgress) {
     return withTimeout(removeBackground(file, config), 22000, 'Imgly processing');
 }
 
+async function removeWithReplicateWorker(file, onProgress) {
+    const endpoint = getAPIEndpoint();
+    if (!endpoint) {
+        throw new Error('Worker URL not configured');
+    }
+
+    onProgress(14);
+    const imageDataUrl = await blobToDataURL(file);
+
+    const response = await withTimeout(fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'remove-background',
+            image: imageDataUrl
+        })
+    }), 45000, 'Replicate worker request');
+
+    onProgress(80);
+
+    if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Replicate worker failed: ${response.status} ${message}`);
+    }
+
+    const result = await response.json();
+    if (!result.success || !result.image) {
+        throw new Error(result.error || 'Replicate worker returned no image');
+    }
+
+    const cleaned = await fetch(result.image).then((res) => res.blob());
+    onProgress(95);
+    return cleaned;
+}
+
 async function removeWithRembg(file, onProgress) {
     const rembg = await withTimeout(initRembg(), 10000, 'Rembg init');
     const { removeBackground, subscribeToProgress } = rembg;
@@ -194,6 +232,15 @@ export async function removeImageBackground(imageInput, onProgress = () => { }) 
     onProgress(6);
 
     const candidates = [];
+
+    try {
+        const replicateBlob = await removeWithReplicateWorker(imageInput, onProgress);
+        const cleaned = await conservativeAlphaCleanup(replicateBlob);
+        const quality = await analyzeMaskQuality(cleaned);
+        candidates.push({ blob: cleaned, quality, source: 'replicate' });
+    } catch (error) {
+        console.warn('Replicate path failed:', error);
+    }
 
     try {
         const imglyBlob = await removeWithImgly(imageInput, onProgress);

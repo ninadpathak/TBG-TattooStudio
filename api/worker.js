@@ -19,9 +19,15 @@ const ALLOWED_ORIGINS = [
     'https://your-domain.com', // Replace with your actual domain
 ];
 
+function isAllowedOrigin(origin) {
+    if (!origin) return false;
+    if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return true;
+    return ALLOWED_ORIGINS.includes(origin);
+}
+
 function corsHeaders(origin) {
     return {
-        'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+        'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Max-Age': '86400',
@@ -50,9 +56,10 @@ export default {
 
         try {
             const body = await request.json();
-            const { action, bodyImage, tattooImage, prompt, style } = body;
+            const { action, bodyImage, tattooImage, prompt, style, image } = body;
 
-            if (!env.GEMINI_API_KEY) {
+            const needsGemini = action === 'place-tattoo' || action === 'generate-tattoo';
+            if (needsGemini && !env.GEMINI_API_KEY) {
                 return new Response(JSON.stringify({ error: 'API key not configured' }), {
                     status: 500,
                     headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
@@ -67,6 +74,14 @@ export default {
             } else if (action === 'generate-tattoo') {
                 // AI Tattoo Generation: text prompt to tattoo image
                 result = await generateTattoo(env.GEMINI_API_KEY, prompt, style);
+            } else if (action === 'remove-background') {
+                if (!env.REPLICATE_API_TOKEN) {
+                    return new Response(JSON.stringify({ error: 'Replicate token not configured' }), {
+                        status: 500,
+                        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+                    });
+                }
+                result = await removeBackgroundWithReplicate(env.REPLICATE_API_TOKEN, image);
             } else {
                 return new Response(JSON.stringify({ error: 'Invalid action' }), {
                     status: 400,
@@ -216,4 +231,96 @@ Output only the tattoo design image.`;
     }
 
     return { success: false, error: 'No image in response' };
+}
+
+/**
+ * Remove background using Replicate rembg model
+ */
+async function removeBackgroundWithReplicate(apiToken, imageDataUrl) {
+    if (!imageDataUrl || typeof imageDataUrl !== 'string') {
+        return { success: false, error: 'Missing image input' };
+    }
+
+    const createResponse = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Token ${apiToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'wait=30',
+        },
+        body: JSON.stringify({
+            version: 'fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003',
+            input: {
+                image: imageDataUrl
+            }
+        }),
+    });
+
+    if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error('Replicate create prediction error:', errorText);
+        return { success: false, error: 'Failed to process image' };
+    }
+
+    let prediction = await createResponse.json();
+
+    // If still processing, poll for completion.
+    if (prediction.status !== 'succeeded') {
+        const maxPolls = 20;
+        for (let i = 0; i < maxPolls; i += 1) {
+            if (prediction.status === 'succeeded' || prediction.status === 'failed' || prediction.status === 'canceled') break;
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+
+            const poll = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Token ${apiToken}` },
+            });
+
+            if (!poll.ok) {
+                const pollError = await poll.text();
+                console.error('Replicate poll error:', pollError);
+                return { success: false, error: 'Prediction polling failed' };
+            }
+
+            prediction = await poll.json();
+        }
+    }
+
+    if (prediction.status !== 'succeeded') {
+        return { success: false, error: prediction.error || 'Background removal failed' };
+    }
+
+    const output = prediction.output;
+    const outputUrl = Array.isArray(output) ? output[0] : output;
+
+    if (!outputUrl || typeof outputUrl !== 'string') {
+        return { success: false, error: 'No output image from Replicate' };
+    }
+
+    const imageResp = await fetch(outputUrl);
+    if (!imageResp.ok) {
+        return { success: false, error: 'Failed to fetch processed image' };
+    }
+
+    const contentType = imageResp.headers.get('content-type') || 'image/png';
+    const arrayBuffer = await imageResp.arrayBuffer();
+    const base64 = arrayBufferToBase64(arrayBuffer);
+
+    return {
+        success: true,
+        image: `data:${contentType};base64,${base64}`,
+    };
+}
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    let binary = '';
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+
+    return btoa(binary);
 }
