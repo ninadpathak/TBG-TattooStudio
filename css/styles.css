@@ -960,3 +960,12 @@ input:focus-visible {
         gap: 0.42rem;
     }
 }
+
+/* --- Credits UI (disabled) --- */
+#creditsModal,
+#creditsCounter,
+#creditsCount,
+.credits-modal,
+.credits-counter {
+    display: none !important;
+}

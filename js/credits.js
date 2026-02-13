@@ -1,8 +1,14 @@
 // Credits Manager
 // Handles localStorage-based credit system for AI generation
+//
+// NOTE: Credits UI (modal/counter) has been removed/disabled.
+// We keep this module to avoid breaking imports, but credits are treated as unlimited.
 
 const CREDITS_KEY = 'tattoo_tryon_credits';
 const DEFAULT_CREDITS = 3;
+
+// Toggle if you ever want to re-enable credits later.
+const CREDITS_ENABLED = false;
 
 class CreditsManager {
     constructor() {
@@ -11,6 +17,10 @@ class CreditsManager {
     }
 
     loadCredits() {
+        if (!CREDITS_ENABLED) {
+            return Number.POSITIVE_INFINITY;
+        }
+
         const stored = localStorage.getItem(CREDITS_KEY);
         if (stored === null) {
             // First time user - grant 3 free credits
@@ -21,6 +31,9 @@ class CreditsManager {
     }
 
     saveCredits() {
+        if (!CREDITS_ENABLED) {
+            return;
+        }
         localStorage.setItem(CREDITS_KEY, this.credits.toString());
         this.updateDisplay();
     }
@@ -30,10 +43,16 @@ class CreditsManager {
     }
 
     hasCredits(amount = 1) {
+        if (!CREDITS_ENABLED) {
+            return true;
+        }
         return this.credits >= amount;
     }
 
     useCredit(amount = 1) {
+        if (!CREDITS_ENABLED) {
+            return true;
+        }
         if (!this.hasCredits(amount)) {
             return false;
         }
@@ -43,15 +62,23 @@ class CreditsManager {
     }
 
     addCredits(amount) {
+        if (!CREDITS_ENABLED) {
+            return;
+        }
         this.credits += amount;
         this.saveCredits();
     }
 
     updateDisplay() {
+        // Credits counter UI removed/disabled.
+        if (!CREDITS_ENABLED) {
+            return;
+        }
+
         const countEl = document.getElementById('creditsCount');
         if (countEl) {
             countEl.textContent = this.credits;
-            
+
             // Add pulse animation on change
             countEl.classList.add('pulse');
             setTimeout(() => countEl.classList.remove('pulse'), 300);
@@ -59,6 +86,11 @@ class CreditsManager {
     }
 
     showBuyModal() {
+        // Credits purchase modal removed/disabled.
+        if (!CREDITS_ENABLED) {
+            return;
+        }
+
         const modal = document.getElementById('creditsModal');
         if (modal) {
             modal.classList.add('visible');
@@ -66,6 +98,10 @@ class CreditsManager {
     }
 
     hideBuyModal() {
+        if (!CREDITS_ENABLED) {
+            return;
+        }
+
         const modal = document.getElementById('creditsModal');
         if (modal) {
             modal.classList.remove('visible');
