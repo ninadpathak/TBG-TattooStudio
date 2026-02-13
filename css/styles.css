@@ -124,7 +124,7 @@ input:focus-visible {
 .nav-links {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 0.35rem;
 }
